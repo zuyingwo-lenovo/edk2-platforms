@@ -1,6 +1,6 @@
 @REM @file
 @REM
-@REM Copyright (c) 2018, Intel Corporation. All rights reserved.<BR>
+@REM Copyright (c) 2018 - 2021, Intel Corporation. All rights reserved.<BR>
 @REM SPDX-License-Identifier: BSD-2-Clause-Patent
 @REM
 
@@ -22,7 +22,7 @@ if %SCRIPT_ERROR% NEQ 0 GOTO :done
 
 :prebuildFinish
 echo.
-echo   ACTIVE_PLATFORM              = %WORKSPACE%\edk2-platforms\Platform\Intel\%BOARD_PKG%\%BOARD_NAME%\PlatformPkg.dsc
+echo   ACTIVE_PLATFORM              = %WORKSPACE%\edk2-platforms\Platform\Intel\%BOARD_PKG%\%BOARD_NAME%\OpenBoardPkg.dsc
 echo   EDK_TOOLS_PATH               = %EDK_TOOLS_PATH%
 echo   TARGET                       = %TARGET%
 echo   TARGET_ARCH                  = IA32 X64
@@ -41,9 +41,9 @@ set BUILD_MAX_CON_THREAD_NUM=
 REM Use done label to exit batch file and run any final steps; GOTO :EOF immediately exits.
 EXIT /B %SCRIPT_ERROR%
 
-::--------------------------------------------------------  
-::-- Function section starts below here  
-::-------------------------------------------------------- 
+::--------------------------------------------------------
+::-- Function section starts below here
+::--------------------------------------------------------
 
 :cleanup_check_VSTools
 set COMPILER_VERSION_STRING=
@@ -157,7 +157,7 @@ set /a prebuildstep=%prebuildstep%+1
 set /a BUILD_MAX_CON_THREAD_NUM = %NUMBER_OF_PROCESSORS%-1
 @REM set /a BUILD_MAX_CON_THREAD_NUM = 1
 findstr /V "ACTIVE_PLATFORM TARGET TARGET_ARCH TOOL_CHAIN_TAG BUILD_RULE_CONF MAX_CONCURRENT_THREAD_NUMBER" %WORKSPACE%\Conf\target.txt > %OUTPUT_DIR%\target.txt 2>NUL
-echo ACTIVE_PLATFORM             = %WORKSPACE%/edk2-platforms/Platform/Intel/%BOARD_PKG%/%BOARD_NAME%/PlatformPkg.dsc >> %OUTPUT_DIR%\target.txt
+echo ACTIVE_PLATFORM             = %WORKSPACE%/edk2-platforms/Platform/Intel/%BOARD_PKG%/%BOARD_NAME%/OpenBoardPkg.dsc >> %OUTPUT_DIR%\target.txt
 echo TARGET                      = %TARGET%                       >> %OUTPUT_DIR%\target.txt
 echo TARGET_ARCH                 = IA32 X64                       >> %OUTPUT_DIR%\target.txt
 echo TOOL_CHAIN_TAG              = %TOOL_CHAIN_TAG%               >> %OUTPUT_DIR%\target.txt
@@ -194,4 +194,4 @@ call %PYTHON_HOME%\python.exe %WORKSPACE%\edk2-platforms\Platform\Intel\MinPlatf
 echo.
 echo GenOffset done
 
-GOTO :EOF 
+GOTO :EOF

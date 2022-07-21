@@ -29,6 +29,9 @@ DEFINE X64EMU_ENABLE  = FALSE
 # Library Class section - list of all Library Classes needed by this Platform.
 #
 ################################################################################
+
+!include MdePkg/MdeLibs.dsc.inc
+
 [LibraryClasses.common]
 !if $(TARGET) == RELEASE
   DebugLib|MdePkg/Library/BaseDebugLibNull/BaseDebugLibNull.inf
@@ -108,6 +111,7 @@ DEFINE X64EMU_ENABLE  = FALSE
   AmdSataInit|Silicon/AMD/Styx/AmdModulePkg/Library/AmdSataInitLib/AmdSataInitLib.inf
   ResetSystemLib|ArmPkg/Library/ArmSmcPsciResetSystemLib/ArmSmcPsciResetSystemLib.inf
   RealTimeClockLib|Silicon/AMD/Styx/Library/RealTimeClockLib/RealTimeClockLib.inf
+  TimeBaseLib|EmbeddedPkg/Library/TimeBaseLib/TimeBaseLib.inf
 
   CapsuleLib|MdeModulePkg/Library/DxeCapsuleLibFmp/DxeCapsuleLib.inf
   DisplayUpdateProgressLib|MdeModulePkg/Library/DisplayUpdateProgressLibGraphics/DisplayUpdateProgressLibGraphics.inf
@@ -119,7 +123,11 @@ DEFINE X64EMU_ENABLE  = FALSE
   PlatformFlashAccessLib|Silicon/AMD/Styx/Library/StyxPlatformFlashAccessLib/StyxPlatformFlashAccessLib.inf
 
   OpensslLib|CryptoPkg/Library/OpensslLib/OpensslLib.inf
+  RngLib|MdePkg/Library/DxeRngLib/DxeRngLib.inf
   TlsLib|CryptoPkg/Library/TlsLib/TlsLib.inf
+  VariableFlashInfoLib|MdeModulePkg/Library/BaseVariableFlashInfoLib/BaseVariableFlashInfoLib.inf
+  VariablePolicyHelperLib|MdeModulePkg/Library/VariablePolicyHelperLib/VariablePolicyHelperLib.inf
+  VariablePolicyLib|MdeModulePkg/Library/VariablePolicyLib/VariablePolicyLib.inf
 
   UefiBootManagerLib|MdeModulePkg/Library/UefiBootManagerLib/UefiBootManagerLib.inf
   PlatformBootManagerLib|ArmPkg/Library/PlatformBootManagerLib/PlatformBootManagerLib.inf
@@ -142,6 +150,7 @@ DEFINE X64EMU_ENABLE  = FALSE
   DxeServicesLib|MdePkg/Library/DxeServicesLib/DxeServicesLib.inf
   SortLib|MdeModulePkg/Library/UefiSortLib/UefiSortLib.inf
   FileExplorerLib|MdeModulePkg/Library/FileExplorerLib/FileExplorerLib.inf
+  FileHandleLib|MdePkg/Library/UefiFileHandleLib/UefiFileHandleLib.inf
 
   DxeServicesLib|MdePkg/Library/DxeServicesLib/DxeServicesLib.inf
   SortLib|MdeModulePkg/Library/UefiSortLib/UefiSortLib.inf
@@ -210,6 +219,7 @@ DEFINE X64EMU_ENABLE  = FALSE
 !if $(TARGET) != RELEASE
   DebugLib|MdePkg/Library/DxeRuntimeDebugLibSerialPort/DxeRuntimeDebugLibSerialPort.inf
 !endif
+  VariablePolicyLib|MdeModulePkg/Library/VariablePolicyLib/VariablePolicyLibRuntimeDxe.inf
 
 [LibraryClasses.common.UEFI_APPLICATION]
   PerformanceLib|MdeModulePkg/Library/DxePerformanceLib/DxePerformanceLib.inf
@@ -388,16 +398,16 @@ DEFINE X64EMU_ENABLE  = FALSE
 
   gArmTokenSpaceGuid.PcdPciIoBase|0x1000
   gArmTokenSpaceGuid.PcdPciIoSize|0xF000
-  gArmTokenSpaceGuid.PcdPciIoTranslation|0xEFFF0000
+  gEfiMdePkgTokenSpaceGuid.PcdPciIoTranslation|0xEFFF0000
   gEmbeddedTokenSpaceGuid.PcdPrePiCpuIoSize|16
 
   gArmTokenSpaceGuid.PcdPciMmio32Base|0x40000000
   gArmTokenSpaceGuid.PcdPciMmio32Size|0x80000000
-  gArmTokenSpaceGuid.PcdPciMmio32Translation|0x0
+  gEfiMdePkgTokenSpaceGuid.PcdPciMmio32Translation|0x0
 
   gArmTokenSpaceGuid.PcdPciMmio64Base|0x100000000
   gArmTokenSpaceGuid.PcdPciMmio64Size|0x7F00000000
-  gArmTokenSpaceGuid.PcdPciMmio64Translation|0x0
+  gEfiMdePkgTokenSpaceGuid.PcdPciMmio64Translation|0x0
 
   ## Use PCI emulation for ATA PassThru
   # gEfiMdeModulePkgTokenSpaceGuid.PcdAtaPassThruPciEmulation|TRUE
@@ -441,6 +451,8 @@ DEFINE X64EMU_ENABLE  = FALSE
   gAmdModulePkgTokenSpaceGuid.PcdPort1PhyMode|0
   gAmdModulePkgTokenSpaceGuid.PcdPort0NetSpeed|1
   gAmdModulePkgTokenSpaceGuid.PcdPort1NetSpeed|1
+
+  gEfiMdeModulePkgTokenSpaceGuid.PcdPcieResizableBarSupport|TRUE
 
 [PcdsDynamicDefault.common]
   gAmdStyxTokenSpaceGuid.PcdEthMacA|{0x2,0xA1,0xA2,0xA3,0xA4,0xA5}
@@ -694,10 +706,10 @@ DEFINE X64EMU_ENABLE  = FALSE
       NULL|ShellPkg/Library/UefiShellNetwork1CommandsLib/UefiShellNetwork1CommandsLib.inf
       NULL|ShellPkg/Library/UefiShellAcpiViewCommandLib/UefiShellAcpiViewCommandLib.inf
       HandleParsingLib|ShellPkg/Library/UefiHandleParsingLib/UefiHandleParsingLib.inf
+      OrderedCollectionLib|MdePkg/Library/BaseOrderedCollectionRedBlackTreeLib/BaseOrderedCollectionRedBlackTreeLib.inf
       PrintLib|MdePkg/Library/BasePrintLib/BasePrintLib.inf
       BcfgCommandLib|ShellPkg/Library/UefiShellBcfgCommandLib/UefiShellBcfgCommandLib.inf
 
-      FileHandleLib|MdePkg/Library/UefiFileHandleLib/UefiFileHandleLib.inf
       ShellLib|ShellPkg/Library/UefiShellLib/UefiShellLib.inf
 
     <PcdsFixedAtBuild>

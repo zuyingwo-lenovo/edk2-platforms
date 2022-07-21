@@ -95,7 +95,10 @@ ArmadaPlatInitDxeEntryPoint (
   EFI_STATUS    Status;
   EFI_EVENT     Event;
 
-  DEBUG ((DEBUG_ERROR, "\nArmada Platform Init\n\n"));
+  DEBUG ((DEBUG_ERROR,
+    "\n%a %a Init\n\n",
+    (CHAR8 *)PcdGetPtr (PcdProductManufacturer),
+    (CHAR8 *)PcdGetPtr (PcdProductPlatformName)));
 
   Status = gBS->InstallProtocolInterface (&ImageHandle,
                   &gMarvellPlatformInitCompleteProtocolGuid,
@@ -107,6 +110,8 @@ ArmadaPlatInitDxeEntryPoint (
   UtmiPhyInit ();
   MppInitialize ();
   ArmadaIcuInitialize ();
+  Status = ArmadaBoardInit ();
+  ASSERT_EFI_ERROR (Status);
 
   /*
    * Enable EL3 PMU interrupt handler and

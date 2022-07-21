@@ -1,10 +1,10 @@
-### @file
+## @file
 #
-# Copyright (c) 2018, Intel Corporation. All rights reserved.<BR>
+# Copyright (c) 2018 - 2021, Intel Corporation. All rights reserved.<BR>
 #
 # SPDX-License-Identifier: BSD-2-Clause-Patent
 #
-###
+##
 
 #
 # TRUE is ENABLE. FALSE is DISABLE.
@@ -42,7 +42,7 @@
   gMinPlatformPkgTokenSpaceGuid.PcdUefiSecureBootEnable|TRUE
   gMinPlatformPkgTokenSpaceGuid.PcdTpm2Enable|TRUE
 !endif
-  
+
   !if $(TARGET) == DEBUG
     gMinPlatformPkgTokenSpaceGuid.PcdSmiHandlerProfileEnable|TRUE
   !else
@@ -51,12 +51,8 @@
 
   gMinPlatformPkgTokenSpaceGuid.PcdPerformanceEnable|TRUE
 
-  gAdvancedFeaturePkgTokenSpaceGuid.PcdNetworkEnable|TRUE
-  gAdvancedFeaturePkgTokenSpaceGuid.PcdSmbiosEnable|TRUE
-  gAdvancedFeaturePkgTokenSpaceGuid.PcdIpmiEnable|TRUE
-
   gPlatformTokenSpaceGuid.PcdFastBoot|FALSE
 !if gPlatformTokenSpaceGuid.PcdFastBoot == TRUE
-  gAdvancedFeaturePkgTokenSpaceGuid.PcdIpmiEnable|FALSE
+  gIpmiFeaturePkgTokenSpaceGuid.PcdIpmiFeatureEnable|FALSE
   gPlatformTokenSpaceGuid.PcdUpdateConsoleInBds|FALSE
 !endif

@@ -34,7 +34,7 @@ if not exist %WORKSPACE%\Conf (
 @REM   Platform override Silicon override Core
 @REM   Source override Binary
 
-set PACKAGES_PATH=%WORKSPACE%\edk2-platforms\Platform\Intel;%WORKSPACE%\edk2-platforms\Silicon\Intel;%WORKSPACE%\edk2-non-osi\Silicon\Intel;%WORKSPACE%\edk2;%WORKSPACE%
+set PACKAGES_PATH=%WORKSPACE%\edk2-platforms\Platform\Intel;%WORKSPACE%\edk2-platforms\Silicon\Intel;%WORKSPACE%\edk2-platforms\Features\Intel;%WORKSPACE%\edk2-platforms\Features\Intel\Debugging;%WORKSPACE%\edk2-platforms\Features\Intel\Network;%WORKSPACE%\edk2-platforms\Features\Intel\OutOfBandManagement;%WORKSPACE%\edk2-platforms\Features\Intel\PowerManagement;%WORKSPACE%\edk2-platforms\Features\Intel\SystemInformation;%WORKSPACE%\edk2-platforms\Features\Intel\UserInterface;%WORKSPACE%\edk2-non-osi\Silicon\Intel;%WORKSPACE%\edk2;%WORKSPACE%
 
 set EDK_TOOLS_BIN=%WORKSPACE%\edk2-BaseTools-win32
 

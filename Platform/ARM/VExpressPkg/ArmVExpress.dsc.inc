@@ -1,21 +1,33 @@
 #
-#  Copyright (c) 2011-2019, ARM Limited. All rights reserved.
+#  Copyright (c) 2011-2022, Arm Limited. All rights reserved.
 #
 #  SPDX-License-Identifier: BSD-2-Clause-Patent
 #
 #
 
 [Defines]
+!ifndef SECURE_BOOT_ENABLE
   SECURE_BOOT_ENABLE    = FALSE
+!endif
+!ifndef INCLUDE_TFTP_COMMAND
   INCLUDE_TFTP_COMMAND  = TRUE
+!endif
 
   #
   # Network definition
   #
+!ifndef NETWORK_SNP_ENABLE
   DEFINE NETWORK_SNP_ENABLE             = FALSE
+!endif
+!ifndef NETWORK_IP6_ENABLE
   DEFINE NETWORK_IP6_ENABLE             = FALSE
+!endif
+!ifndef NETWORK_TLS_ENABLE
   DEFINE NETWORK_TLS_ENABLE             = FALSE
+!endif
+!ifndef NETWORK_HTTP_BOOT_ENABLE
   DEFINE NETWORK_HTTP_BOOT_ENABLE       = FALSE
+!endif
 
 [BuildOptions.common]
   *_*_*_CC_FLAGS = -DDISABLE_NEW_DEPRECATED_INTERFACES
@@ -36,6 +48,7 @@
   DebugPrintErrorLevelLib|MdePkg/Library/BaseDebugPrintErrorLevelLib/BaseDebugPrintErrorLevelLib.inf
 
   BaseLib|MdePkg/Library/BaseLib/BaseLib.inf
+  SafeIntLib|MdePkg/Library/BaseSafeIntLib/BaseSafeIntLib.inf
   SynchronizationLib|MdePkg/Library/BaseSynchronizationLib/BaseSynchronizationLib.inf
   PerformanceLib|MdePkg/Library/BasePerformanceLibNull/BasePerformanceLibNull.inf
   PrintLib|MdePkg/Library/BasePrintLib/BasePrintLib.inf
@@ -128,6 +141,8 @@
 !if $(SECURE_BOOT_ENABLE) == TRUE
   TpmMeasurementLib|SecurityPkg/Library/DxeTpmMeasurementLib/DxeTpmMeasurementLib.inf
   AuthVariableLib|SecurityPkg/Library/AuthVariableLib/AuthVariableLib.inf
+  SecureBootVariableLib|SecurityPkg/Library/SecureBootVariableLib/SecureBootVariableLib.inf
+  SecureBootVariableProvisionLib|SecurityPkg/Library/SecureBootVariableProvisionLib/SecureBootVariableProvisionLib.inf
 
   # re-use the UserPhysicalPresent() dummy implementation from the ovmf tree
   PlatformSecureLib|OvmfPkg/Library/PlatformSecureLib/PlatformSecureLib.inf
@@ -138,7 +153,11 @@
   BaseCryptLib|CryptoPkg/Library/BaseCryptLib/BaseCryptLib.inf
   IntrinsicLib|CryptoPkg/Library/IntrinsicLib/IntrinsicLib.inf
   OpensslLib|CryptoPkg/Library/OpensslLib/OpensslLib.inf
+  RngLib|MdePkg/Library/BaseRngLibTimerLib/BaseRngLibTimerLib.inf
   VarCheckLib|MdeModulePkg/Library/VarCheckLib/VarCheckLib.inf
+  VariableFlashInfoLib|MdeModulePkg/Library/BaseVariableFlashInfoLib/BaseVariableFlashInfoLib.inf
+  VariablePolicyLib|MdeModulePkg/Library/VariablePolicyLib/VariablePolicyLib.inf
+  VariablePolicyHelperLib|MdeModulePkg/Library/VariablePolicyHelperLib/VariablePolicyHelperLib.inf
 
   CapsuleLib|MdeModulePkg/Library/DxeCapsuleLibNull/DxeCapsuleLibNull.inf
   CustomizedDisplayLib|MdeModulePkg/Library/CustomizedDisplayLib/CustomizedDisplayLib.inf
@@ -226,12 +245,14 @@
   MemoryAllocationLib|MdePkg/Library/UefiMemoryAllocationLib/UefiMemoryAllocationLib.inf
   CapsuleLib|MdeModulePkg/Library/DxeCapsuleLibNull/DxeCapsuleLibNull.inf
   ReportStatusCodeLib|MdeModulePkg/Library/RuntimeDxeReportStatusCodeLib/RuntimeDxeReportStatusCodeLib.inf
+  VariablePolicyLib|MdeModulePkg/Library/VariablePolicyLib/VariablePolicyLibRuntimeDxe.inf
 !if $(SECURE_BOOT_ENABLE) == TRUE
   BaseCryptLib|CryptoPkg/Library/BaseCryptLib/RuntimeCryptLib.inf
 !endif
 !if $(TARGET) != RELEASE
   DebugLib|MdePkg/Library/DxeRuntimeDebugLibSerialPort/DxeRuntimeDebugLibSerialPort.inf
 !endif
+  VariablePolicyLib|MdeModulePkg/Library/VariablePolicyLib/VariablePolicyLibRuntimeDxe.inf
 
 [LibraryClasses.ARM, LibraryClasses.AARCH64]
   #
@@ -255,6 +276,13 @@
 # Pcd Section - list of all EDK II PCD Entries defined by this Platform
 #
 ################################################################################
+
+[PcdsDynamicHii.common.DEFAULT]
+  # Possible values are:
+  #  0: Connect Minimal Devices
+  #  1: Connect Network Devices
+  #  2: Connect All Devices
+  gEfiMdeModulePkgTokenSpaceGuid.PcdBootDiscoveryPolicy|L"BootDiscoveryPolicy"|gBootDiscoveryPolicyMgrFormsetGuid|0|0
 
 [PcdsFeatureFlag.common]
   gEfiMdePkgTokenSpaceGuid.PcdComponentNameDisable|TRUE
@@ -368,7 +396,7 @@
 
 !ifdef EDK2_ENABLE_SMSC_91X
   # Ethernet (SMSC 91C111)
-  gEmbeddedTokenSpaceGuid.PcdLan91xDxeBaseAddress|0x1A000000
+  gArmVExpressTokenSpaceGuid.PcdLan91xDxeBaseAddress|0x1A000000
 !endif
 
 !if $(SECURE_BOOT_ENABLE) == TRUE
@@ -417,7 +445,7 @@
 !include NetworkPkg/Network.dsc.inc
 !ifdef EDK2_ENABLE_SMSC_91X
   # SMSC LAN 91C111
-  EmbeddedPkg/Drivers/Lan91xDxe/Lan91xDxe.inf
+  Platform/ARM/VExpressPkg/Drivers/Lan91xDxe/Lan91xDxe.inf
 !endif
 
   #
@@ -445,6 +473,7 @@
       NULL|ShellPkg/Library/UefiShellInstall1CommandsLib/UefiShellInstall1CommandsLib.inf
       NULL|ShellPkg/Library/UefiShellNetwork1CommandsLib/UefiShellNetwork1CommandsLib.inf
       HandleParsingLib|ShellPkg/Library/UefiHandleParsingLib/UefiHandleParsingLib.inf
+      OrderedCollectionLib|MdePkg/Library/BaseOrderedCollectionRedBlackTreeLib/BaseOrderedCollectionRedBlackTreeLib.inf
       PrintLib|MdePkg/Library/BasePrintLib/BasePrintLib.inf
       BcfgCommandLib|ShellPkg/Library/UefiShellBcfgCommandLib/UefiShellBcfgCommandLib.inf
   }
@@ -455,4 +484,4 @@
 [Components.ARM]
 
   # ISP1761 USB OTG Controller
-  EmbeddedPkg/Drivers/Isp1761UsbDxe/Isp1761UsbDxe.inf
+  Platform/ARM/VExpressPkg/Drivers/Isp1761UsbDxe/Isp1761UsbDxe.inf

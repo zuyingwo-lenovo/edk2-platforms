@@ -1,23 +1,34 @@
-### @file
+## @file
 #
-# Copyright (c) 2018, Intel Corporation. All rights reserved.<BR>
+# Copyright (c) 2018 - 2021, Intel Corporation. All rights reserved.<BR>
 #
 # SPDX-License-Identifier: BSD-2-Clause-Patent
 #
-###
+##
 
 ################################################################################
 #
-# Pcd Section - list of all EDK II PCD Entries defined by this Platform
+# Pcd Section - list of all PCD Entries defined by this board.
 #
 ################################################################################
+
+[PcdsFixedAtBuild.common]
+  ######################################
+  # Key Boot Stage and FSP configuration
+  ######################################
+  #
+  # Please select the Boot Stage here.
+  # Stage 1 - enable debug (system deadloop after debug init)
+  # Stage 2 - mem init (system deadloop after mem init)
+  # Stage 3 - boot to shell only
+  # Stage 4 - boot to OS
+  # Stage 5 - boot to OS with security boot enabled
+  # Stage 6 - boot with advanced features enabled
+  #
+  gMinPlatformPkgTokenSpaceGuid.PcdBootStage|4
+
 [PcdsFeatureFlag.common]
   gPlatformTokenSpaceGuid.PcdLockCsrSsidSvidRegister|FALSE
-!if $(TARGET) == RELEASE
-  gEfiMdeModulePkgTokenSpaceGuid.PcdStatusCodeUseSerial|FALSE
-!else
-  gEfiMdeModulePkgTokenSpaceGuid.PcdStatusCodeUseSerial|TRUE
-!endif
   # Server doesn't support capsle update on Reset.
   gEfiMdeModulePkgTokenSpaceGuid.PcdSupportUpdateCapsuleReset|FALSE
   gEfiCpuTokenSpaceGuid.PcdCpuSmmEnableBspElection|TRUE
@@ -25,7 +36,6 @@
   gEfiCpuTokenSpaceGuid.PcdCpuHotPlugSupport|TRUE
   gUefiCpuPkgTokenSpaceGuid.PcdCpuHotPlugSupport|TRUE
   gEfiMdeModulePkgTokenSpaceGuid.PcdPciBusHotplugDeviceSupport|FALSE
-  
 
 #S3 add
   gEfiMdeModulePkgTokenSpaceGuid.PcdDxeIplSwitchToLongMode|TRUE
@@ -48,6 +58,46 @@
   ## This PCD specified whether ACPI SDT protocol is installed.
   gEfiMdeModulePkgTokenSpaceGuid.PcdInstallAcpiSdtProtocol|TRUE
 
+  ######################################
+  # Platform Configuration
+  ######################################
+  gMinPlatformPkgTokenSpaceGuid.PcdBootToShellOnly|FALSE
+  gMinPlatformPkgTokenSpaceGuid.PcdStopAfterDebugInit|FALSE
+  gMinPlatformPkgTokenSpaceGuid.PcdStopAfterMemInit|FALSE
+  gMinPlatformPkgTokenSpaceGuid.PcdPerformanceEnable|FALSE
+  gMinPlatformPkgTokenSpaceGuid.PcdTpm2Enable|FALSE
+  gMinPlatformPkgTokenSpaceGuid.PcdUefiSecureBootEnable|FALSE
+  gMinPlatformPkgTokenSpaceGuid.PcdSerialTerminalEnable|FALSE
+
+!if gMinPlatformPkgTokenSpaceGuid.PcdBootStage >= 1
+  gMinPlatformPkgTokenSpaceGuid.PcdStopAfterDebugInit|TRUE
+!endif
+
+!if gMinPlatformPkgTokenSpaceGuid.PcdBootStage >= 2
+  gMinPlatformPkgTokenSpaceGuid.PcdStopAfterDebugInit|FALSE
+  gMinPlatformPkgTokenSpaceGuid.PcdStopAfterMemInit|TRUE
+!endif
+
+!if gMinPlatformPkgTokenSpaceGuid.PcdBootStage >= 3
+  gMinPlatformPkgTokenSpaceGuid.PcdStopAfterMemInit|FALSE
+  gMinPlatformPkgTokenSpaceGuid.PcdBootToShellOnly|TRUE
+!endif
+
+!if gMinPlatformPkgTokenSpaceGuid.PcdBootStage >= 4
+  gMinPlatformPkgTokenSpaceGuid.PcdBootToShellOnly|FALSE
+!endif
+
+!if gMinPlatformPkgTokenSpaceGuid.PcdBootStage >= 5
+  gMinPlatformPkgTokenSpaceGuid.PcdUefiSecureBootEnable|TRUE
+  gMinPlatformPkgTokenSpaceGuid.PcdTpm2Enable|TRUE
+!endif
+
+!if $(TARGET) == DEBUG
+  gMinPlatformPkgTokenSpaceGuid.PcdSmiHandlerProfileEnable|TRUE
+!else
+  gMinPlatformPkgTokenSpaceGuid.PcdSmiHandlerProfileEnable|FALSE
+!endif
+
 [PcdsFeatureFlag.X64]
   gUefiCpuPkgTokenSpaceGuid.PcdCpuSmmStackGuard|FALSE
 
@@ -55,7 +105,7 @@
   gEfiMdeModulePkgTokenSpaceGuid.PcdBrowerGrayOutReadOnlyMenu|TRUE
 
 [PcdsDynamicExDefault]
-!include $(BOARD_PKG)/$(BOARD_NAME)/StructureConfig.dsc
+!include $(PROJECT)/StructureConfig.dsc
 
 [PcdsFixedAtBuild.X64]
   gMinPlatformPkgTokenSpaceGuid.PcdTrustedConsoleOutputDevicePath|{0x02, 0x01, 0x0C, 0x00, 0xd0, 0x41, 0x03, 0x0A, 0x01, 0x00, 0x00, 0x00, 0x01, 0x01, 0x06, 0x00,  0x00, 0x01, 0x01, 0x01, 0x06, 0x00,  0x00, 0x01, 0x7F, 0xFF, 0x04, 0x00}
@@ -72,6 +122,11 @@
 !else
   gEfiMdePkgTokenSpaceGuid.PcdDebugPropertyMask|0x2F
   gEfiMdePkgTokenSpaceGuid.PcdReportStatusCodePropertyMask|0x07
+!endif
+!if $(TARGET) == RELEASE
+  gEfiMdeModulePkgTokenSpaceGuid.PcdStatusCodeUseSerial|FALSE
+!else
+  gEfiMdeModulePkgTokenSpaceGuid.PcdStatusCodeUseSerial|TRUE
 !endif
   gEfiMdePkgTokenSpaceGuid.PcdReportStatusCodePropertyMask|0x07
   gEfiMdeModulePkgTokenSpaceGuid.PcdLoadModuleAtFixAddressEnable|0
@@ -199,10 +254,6 @@
   gEfiCpuTokenSpaceGuid.PcdCpuSmmCodeAccessCheckEnable |TRUE
   gUefiCpuPkgTokenSpaceGuid.PcdCpuSmmCodeAccessCheckEnable |TRUE
 
-  gMinPlatformPkgTokenSpaceGuid.PcdFadtPreferredPmProfile|0x04
-  gMinPlatformPkgTokenSpaceGuid.PcdFadtIaPcBootArch|0x0000
-  gMinPlatformPkgTokenSpaceGuid.PcdFadtFlags|0x000004A5
-
   gMinPlatformPkgTokenSpaceGuid.PcdAcpiEnableSwSmi|0xA0
   gMinPlatformPkgTokenSpaceGuid.PcdAcpiDisableSwSmi|0xA1
 
@@ -316,6 +367,10 @@
   gEfiMdeModulePkgTokenSpaceGuid.PcdAcpiDefaultOemTableId|0x2046573030363253
 
   gMinPlatformPkgTokenSpaceGuid.PcdPcIoApicEnable|0x0
+
+  gMinPlatformPkgTokenSpaceGuid.PcdFadtPreferredPmProfile|0x04
+  gMinPlatformPkgTokenSpaceGuid.PcdFadtIaPcBootArch|0x0000
+  gMinPlatformPkgTokenSpaceGuid.PcdFadtFlags|0x000004A5
 
 [PcdsDynamicExDefault.X64]
 

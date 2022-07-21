@@ -115,7 +115,7 @@ def post_build_ex(config, functions):
                                          "PatchFv", "PatchBinFv.py"),
                             config["TARGET"],
                             os.path.join(config["WORKSPACE_SILICON_BIN"],
-                                         "PurleySiliconBinPkg"),
+                                         "PurleySiliconBinPkg", "FV"),
                             os.path.join(config["WORKSPACE"],
                                          "BuildReport.log")]
 
@@ -136,7 +136,7 @@ def post_build_ex(config, functions):
                                           "PatchFv", "RebaseBinFv.py"),
                              config["TARGET"],
                              os.path.join(config["WORKSPACE_SILICON_BIN"],
-                                          "PurleySiliconBinPkg"),
+                                          "PurleySiliconBinPkg", "FV"),
                              os.path.join(config["WORKSPACE"],
                                           "BuildReport.log")]
 

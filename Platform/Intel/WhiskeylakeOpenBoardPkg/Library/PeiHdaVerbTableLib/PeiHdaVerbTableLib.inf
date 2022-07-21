@@ -2,7 +2,7 @@
 #  PEI Intel HD Audio Verb Table library.
 #
 #
-#  Copyright (c) 2019, Intel Corporation. All rights reserved.<BR>
+#  Copyright (c) 2019 - 2020 Intel Corporation. All rights reserved.<BR>
 #
 #  SPDX-License-Identifier: BSD-2-Clause-Patent
 #
@@ -36,6 +36,7 @@
 
 [Sources]
   PeiHdaVerbTableLib.c
+  PchHdaVerbTables.c
 
 ################################################################################
 #
@@ -49,6 +50,7 @@
   MdeModulePkg/MdeModulePkg.dec
   CoffeelakeSiliconPkg/SiPkg.dec
   WhiskeylakeOpenBoardPkg/OpenBoardPkg.dec
+  IntelSiliconPkg/IntelSiliconPkg.dec
 
 [LibraryClasses]
   BaseLib
@@ -58,10 +60,10 @@
   PcdLib
 
 [Pcd]
-  gBoardModuleTokenSpaceGuid.PcdHdaVerbTable                ## CONSUMES
-  gBoardModuleTokenSpaceGuid.PcdHdaVerbTable2               ## CONSUMES
-  gBoardModuleTokenSpaceGuid.PcdExtHdaVerbTable             ## CONSUMES
-  gBoardModuleTokenSpaceGuid.PcdCommonHdaVerbTable1         ## CONSUMES
-  gBoardModuleTokenSpaceGuid.PcdCommonHdaVerbTable2         ## CONSUMES
-  gBoardModuleTokenSpaceGuid.PcdCommonHdaVerbTable3         ## CONSUMES
-  gBoardModuleTokenSpaceGuid.PcdDisplayAudioHdaVerbTable    ## CONSUMES
+  gWhiskeylakeOpenBoardPkgTokenSpaceGuid.PcdHdaVerbTable                ## CONSUMES
+  gWhiskeylakeOpenBoardPkgTokenSpaceGuid.PcdHdaVerbTable2               ## CONSUMES
+  gWhiskeylakeOpenBoardPkgTokenSpaceGuid.PcdExtHdaVerbTable             ## CONSUMES
+  gWhiskeylakeOpenBoardPkgTokenSpaceGuid.PcdCommonHdaVerbTable1         ## CONSUMES
+  gWhiskeylakeOpenBoardPkgTokenSpaceGuid.PcdCommonHdaVerbTable2         ## CONSUMES
+  gWhiskeylakeOpenBoardPkgTokenSpaceGuid.PcdCommonHdaVerbTable3         ## CONSUMES
+  gWhiskeylakeOpenBoardPkgTokenSpaceGuid.PcdDisplayAudioHdaVerbTable    ## CONSUMES

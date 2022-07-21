@@ -26,6 +26,7 @@
   Silicon/Marvell/Marvell.dec
 
 [LibraryClasses]
+  ArmadaBoardDescLib
   ArmadaIcuLib
   ArmSmcLib
   ComPhyLib
@@ -39,6 +40,10 @@
 [Guids]
   gEdkiiPlatformHasAcpiGuid
   gEfiEventReadyToBootGuid
+
+[FixedPcd]
+  gMarvellTokenSpaceGuid.PcdProductManufacturer
+  gMarvellTokenSpaceGuid.PcdProductPlatformName
 
 [Protocols]
   gMarvellPlatformInitCompleteProtocolGuid    ## PRODUCES

@@ -2,7 +2,7 @@
   This file is SampleCode of the library for Intel PCH PEI Policy initialization.
 
 
-  Copyright (c) 2019, Intel Corporation. All rights reserved.<BR>
+  Copyright (c) 2019 - 2020 Intel Corporation. All rights reserved.<BR>
   SPDX-License-Identifier: BSD-2-Clause-Patent
 **/
 
@@ -16,6 +16,7 @@
 #include <Library/PchPcieRpLib.h>
 #include <Library/DebugLib.h>
 #include <Library/PchPolicyLib.h>
+#include <Library/ConfigBlockLib.h>
 
 //
 // Sawtooth Peak
@@ -82,7 +83,13 @@ UpdatePeiPchPolicyPreMem (
   Status = GetConfigBlock ((VOID *) SiPreMemPolicy, &gIshPreMemConfigGuid, (VOID *) &IshPreMemConfig);
   ASSERT_EFI_ERROR (Status);
 
-  DciPreMemConfig->DciUsb3TypecUfpDbg = 2;
+  if (PcdGetBool (PcdDciEnable)) {
+    DciPreMemConfig->PlatformDebugConsent = 3;
+    DciPreMemConfig->DciUsb3TypecUfpDbg = 1;
+  } else {
+    DciPreMemConfig->DciUsb3TypecUfpDbg = 2;
+  }
+
   PchTraceHubPreMemConfig->MemReg0Size = 3;
   PchTraceHubPreMemConfig->MemReg1Size = 3;
   //

@@ -1,16 +1,16 @@
-### @file
+## @file
 #
-# Copyright (c) 2018, Intel Corporation. All rights reserved.<BR>
+# Copyright (c) 2018 - 2021, Intel Corporation. All rights reserved.<BR>
 #
 # SPDX-License-Identifier: BSD-2-Clause-Patent
 #
-###
+##
 
 [BuildOptions.Common.EDKII]
 # Append build options for EDK and EDKII drivers (= is Append, == is Replace)
 
   DEFINE CRB_EDKII_BUILD_OPTIONS         = -D CRB_FLAG
-  DEFINE EDKII_CPU_BUILD_OPTIONS         = -D PURLEY_FLAG 
+  DEFINE EDKII_CPU_BUILD_OPTIONS         = -D PURLEY_FLAG
   DEFINE TRAD_BUILD_OPTION               = -D TRAD_FLAG=1
   DEFINE SUS_WELL_RESTORE_BUILD_OPTION   = -D SUS_WELL_RESTORE=1
   DEFINE PCH_BUILD_OPTION                = -D PCH_SERVER_BIOS_FLAG=1
@@ -25,7 +25,7 @@
 !if $(TARGET) == "DEBUG"
   DEFINE DEBUG_BUILD_FLAG = -D SERIAL_DBG_MSG=1
 !else
-  DEFINE DEBUG_BUILD_FLAG = -D MDEPKG_NDEBUG -D SILENT_MODE 
+  DEFINE DEBUG_BUILD_FLAG = -D MDEPKG_NDEBUG -D SILENT_MODE
 !endif
 
   DEFINE EDKII_DSC_FEATURE_BUILD_OPTIONS     = $(EDKII_DSC_FEATURE_BUILD_OPTIONS) $(DEBUG_BUILD_FLAG)
@@ -74,7 +74,7 @@
 [BuildOptions.common.EDKII.DXE_SMM_DRIVER, BuildOptions.common.EDKII.SMM_CORE]
   MSFT:*_*_*_DLINK_FLAGS = /ALIGN:4096
   GCC:*_*_*_DLINK_FLAGS = -z common-page-size=0x1000
-  
+
 # Force PE/COFF sections to be aligned at 4KB boundaries to support MemoryAttribute table
 [BuildOptions.common.EDKII.DXE_RUNTIME_DRIVER]
   MSFT:*_*_*_DLINK_FLAGS = /ALIGN:4096

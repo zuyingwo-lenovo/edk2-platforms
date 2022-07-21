@@ -109,8 +109,8 @@ typedef enum {
 
 typedef struct {
   ICU_GROUP Group;
-  UINTN     SetSpiAddr;
-  UINTN     ClrSpiAddr;
+  EFI_PHYSICAL_ADDRESS SetSpiAddr;
+  EFI_PHYSICAL_ADDRESS ClrSpiAddr;
 } ICU_MSI;
 
 typedef struct {
@@ -226,6 +226,7 @@ ArmadaSoCDescPp2Get (
 typedef struct {
   UINT8 UtmiPhyId;
   UINTN UtmiBaseAddress;
+  UINTN UtmiPllAddress;
   UINTN UtmiConfigAddress;
   UINTN UsbConfigAddress;
 } MV_SOC_UTMI_DESC;

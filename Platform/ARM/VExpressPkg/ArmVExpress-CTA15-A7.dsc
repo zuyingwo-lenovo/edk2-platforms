@@ -30,6 +30,7 @@
   DEFINE ARM_BIGLITTLE_TC2 = 1 # We build for the TC2 hardware by default
 
 !include Platform/ARM/VExpressPkg/ArmVExpress.dsc.inc
+!include MdePkg/MdeLibs.dsc.inc
 
 [LibraryClasses.common]
   ArmLib|ArmPkg/Library/ArmLib/ArmBaseLib.inf
@@ -146,8 +147,8 @@
   #
   # PL180 MMC/SD card controller
   #
-  gArmPlatformTokenSpaceGuid.PcdPL180SysMciRegAddress|0x1C010048
-  gArmPlatformTokenSpaceGuid.PcdPL180MciBaseAddress|0x1C050000
+  gArmVExpressTokenSpaceGuid.PcdPL180SysMciRegAddress|0x1C010048
+  gArmVExpressTokenSpaceGuid.PcdPL180MciBaseAddress|0x1C050000
 
 
   #
@@ -157,11 +158,11 @@
   gArmTokenSpaceGuid.PcdGicInterruptInterfaceBase|0x2C002000
 
   # ISP1761 USB OTG Controller
-  gEmbeddedTokenSpaceGuid.PcdIsp1761BaseAddress|0x1B000000
+  gArmVExpressTokenSpaceGuid.PcdIsp1761BaseAddress|0x1B000000
 
   # Ethernet (SMSC LAN9118)
-  gEmbeddedTokenSpaceGuid.PcdLan9118DxeBaseAddress|0x1A000000
-  gEmbeddedTokenSpaceGuid.PcdLan9118DefaultNegotiationTimeout|400000
+  gArmVExpressTokenSpaceGuid.PcdLan9118DxeBaseAddress|0x1A000000
+  gArmVExpressTokenSpaceGuid.PcdLan9118DefaultNegotiationTimeout|400000
 
   #
   # Define the device path to the FDT for the platform
@@ -249,10 +250,10 @@
   # Multimedia Card Interface
   #
   EmbeddedPkg/Universal/MmcDxe/MmcDxe.inf
-  ArmPlatformPkg/Drivers/PL180MciDxe/PL180MciDxe.inf
+  Platform/ARM/VExpressPkg/Drivers/PL180MciDxe/PL180MciDxe.inf
 
   # SMSC LAN 9118
-  EmbeddedPkg/Drivers/Lan9118Dxe/Lan9118Dxe.inf
+  Platform/ARM/VExpressPkg/Drivers/Lan9118Dxe/Lan9118Dxe.inf
 
   #
   # FAT filesystem + GPT/MBR partitioning
@@ -266,12 +267,14 @@
   #
   # Bds
   #
+  MdeModulePkg/Universal/BootManagerPolicyDxe/BootManagerPolicyDxe.inf
   MdeModulePkg/Universal/DevicePathDxe/DevicePathDxe.inf
   MdeModulePkg/Universal/DisplayEngineDxe/DisplayEngineDxe.inf
   MdeModulePkg/Universal/SetupBrowserDxe/SetupBrowserDxe.inf
   MdeModulePkg/Universal/BdsDxe/BdsDxe.inf
   MdeModulePkg/Application/UiApp/UiApp.inf {
     <LibraryClasses>
+      NULL|MdeModulePkg/Library/BootDiscoveryPolicyUiLib/BootDiscoveryPolicyUiLib.inf
       NULL|MdeModulePkg/Library/DeviceManagerUiLib/DeviceManagerUiLib.inf
       NULL|MdeModulePkg/Library/BootManagerUiLib/BootManagerUiLib.inf
       NULL|MdeModulePkg/Library/BootMaintenanceManagerUiLib/BootMaintenanceManagerUiLib.inf

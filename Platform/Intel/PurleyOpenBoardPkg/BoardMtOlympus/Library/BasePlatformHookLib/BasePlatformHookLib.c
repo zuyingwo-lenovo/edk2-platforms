@@ -1,6 +1,6 @@
 /** @file
 
-Copyright (c) 2018, Intel Corporation. All rights reserved.<BR>
+Copyright (c) 2018 - 2021, Intel Corporation. All rights reserved.<BR>
 SPDX-License-Identifier: BSD-2-Clause-Patent
 
 **/
@@ -84,58 +84,58 @@ ReadAHBDword(
   UINT8    bValue;
   UINT32   rdValue = 0;
 
-  IoWrite8 (SIO_INDEX_PORT, REG_LOGICAL_DEVICE); 
+  IoWrite8 (SIO_INDEX_PORT, REG_LOGICAL_DEVICE);
   IoWrite8 (0xED, 0);//short delay.
-  IoWrite8 (SIO_DATA_PORT, SIO_SMI);  
-  IoWrite8 (0xED, 0);//short delay.  
+  IoWrite8 (SIO_DATA_PORT, SIO_SMI);
+  IoWrite8 (0xED, 0);//short delay.
 
-  IoWrite8 (SIO_INDEX_PORT, 0x30); 
+  IoWrite8 (SIO_INDEX_PORT, 0x30);
   IoWrite8 (0xED, 0);//short delay.
-  IoWrite8 (SIO_DATA_PORT, 1);  
-  IoWrite8 (0xED, 0);//short delay.  
-  
-  IoWrite8 (SIO_INDEX_PORT, 0xf8);   
+  IoWrite8 (SIO_DATA_PORT, 1);
+  IoWrite8 (0xED, 0);//short delay.
+
+  IoWrite8 (SIO_INDEX_PORT, 0xf8);
   bValue = IoRead8(SIO_DATA_PORT);
   bValue &= 0xfc;
-  bValue |= 2;  // 4 byte window.  
-  IoWrite8 (SIO_DATA_PORT, bValue);    
-  IoWrite8 (0xED, 0);//short delay.  
+  bValue |= 2;  // 4 byte window.
+  IoWrite8 (SIO_DATA_PORT, bValue);
+  IoWrite8 (0xED, 0);//short delay.
 
-  IoWrite8 (SIO_INDEX_PORT, 0xf0); 
-  IoWrite8 (0xED, 0);//short delay.  
-  IoWrite8 (SIO_DATA_PORT,  (UINT8)((RegIndex >> 24)& 0xff));   
+  IoWrite8 (SIO_INDEX_PORT, 0xf0);
+  IoWrite8 (0xED, 0);//short delay.
+  IoWrite8 (SIO_DATA_PORT,  (UINT8)((RegIndex >> 24)& 0xff));
 
-  IoWrite8 (SIO_INDEX_PORT, 0xf1); 
-  IoWrite8 (0xED, 0);//short delay.  
-  IoWrite8 (SIO_DATA_PORT,  (UINT8)((RegIndex >> 16)& 0xff));    
+  IoWrite8 (SIO_INDEX_PORT, 0xf1);
+  IoWrite8 (0xED, 0);//short delay.
+  IoWrite8 (SIO_DATA_PORT,  (UINT8)((RegIndex >> 16)& 0xff));
 
-  IoWrite8 (SIO_INDEX_PORT, 0xf2); 
-  IoWrite8 (0xED, 0);//short delay.  
-  IoWrite8 (SIO_DATA_PORT,  (UINT8)((RegIndex >> 8) & 0xff));     
+  IoWrite8 (SIO_INDEX_PORT, 0xf2);
+  IoWrite8 (0xED, 0);//short delay.
+  IoWrite8 (SIO_DATA_PORT,  (UINT8)((RegIndex >> 8) & 0xff));
 
-  IoWrite8 (SIO_INDEX_PORT, 0xf3); 
-  IoWrite8 (0xED, 0);//short delay.  
-  IoWrite8 (SIO_DATA_PORT,  (UINT8)((RegIndex )& 0xff));    
+  IoWrite8 (SIO_INDEX_PORT, 0xf3);
+  IoWrite8 (0xED, 0);//short delay.
+  IoWrite8 (SIO_DATA_PORT,  (UINT8)((RegIndex )& 0xff));
 
   // trigger read
-  IoWrite8 (SIO_INDEX_PORT, 0xfe); 
-  IoRead8 (SIO_DATA_PORT); 
+  IoWrite8 (SIO_INDEX_PORT, 0xfe);
+  IoRead8 (SIO_DATA_PORT);
 
 
-  IoWrite8 (SIO_INDEX_PORT, 0xf4); 
-  rdValue += IoRead8 (SIO_DATA_PORT); 
+  IoWrite8 (SIO_INDEX_PORT, 0xf4);
+  rdValue += IoRead8 (SIO_DATA_PORT);
   rdValue <<= 8;
 
-  IoWrite8 (SIO_INDEX_PORT, 0xf5); 
-  rdValue += IoRead8 (SIO_DATA_PORT); 
-  rdValue <<= 8;  
+  IoWrite8 (SIO_INDEX_PORT, 0xf5);
+  rdValue += IoRead8 (SIO_DATA_PORT);
+  rdValue <<= 8;
 
-  IoWrite8 (SIO_INDEX_PORT, 0xf6); 
-  rdValue += IoRead8 (SIO_DATA_PORT); 
-  rdValue <<= 8;  
+  IoWrite8 (SIO_INDEX_PORT, 0xf6);
+  rdValue += IoRead8 (SIO_DATA_PORT);
+  rdValue <<= 8;
 
-  IoWrite8 (SIO_INDEX_PORT, 0xf7); 
-  rdValue += IoRead8 (SIO_DATA_PORT); 
+  IoWrite8 (SIO_INDEX_PORT, 0xf7);
+  rdValue += IoRead8 (SIO_DATA_PORT);
 
 
   return rdValue;
@@ -152,30 +152,28 @@ ReadAHBDword(
     @retval RETURN_SUCCESS - GC_TODO: add retval description
 
 **/
-UINT32  
+UINT32
 IsSioExist (
   VOID
 )
 {
-  UINT32   SioExit;
-  UINT32   DeviceID;
+  UINT32   SioExist;
 
-  SioExit = 0;
-  
-  IoWrite8 (SIO_INDEX_PORT, SIO_UNLOCK);  
-  IoWrite8 (SIO_INDEX_PORT, SIO_UNLOCK);    
+  SioExist = 0;
 
-  IoWrite8 (SIO_INDEX_PORT, REG_LOGICAL_DEVICE); 
-  IoWrite8 (SIO_DATA_PORT, SIO_UART1);   
+  IoWrite8 (SIO_INDEX_PORT, SIO_UNLOCK);
+  IoWrite8 (SIO_INDEX_PORT, SIO_UNLOCK);
 
-  if(IoRead8(SIO_DATA_PORT) == SIO_UART1){
-    DeviceID=0;
-    SioExit |= EXIST; 
-  }  
-  
-  IoWrite8 (SIO_INDEX_PORT, SIO_LOCK);    
+  IoWrite8 (SIO_INDEX_PORT, REG_LOGICAL_DEVICE);
+  IoWrite8 (SIO_DATA_PORT, SIO_UART1);
 
-  return SioExit;
+  if (IoRead8 (SIO_DATA_PORT) == SIO_UART1) {
+    SioExist |= EXIST;
+  }
+
+  IoWrite8 (SIO_INDEX_PORT, SIO_LOCK);
+
+  return SioExist;
 }
 
 /**
@@ -216,22 +214,22 @@ InitializeSio (
     SioEnable = SioExist;
 
     if (SioEnable == EXIST) {
-      IoWrite8 (SIO_INDEX_PORT, SIO_UNLOCK);  
-      IoWrite8 (SIO_INDEX_PORT, SIO_UNLOCK);  
+      IoWrite8 (SIO_INDEX_PORT, SIO_UNLOCK);
+      IoWrite8 (SIO_INDEX_PORT, SIO_UNLOCK);
 
       //
       //COM1
       //
-      IoWrite8 (SIO_INDEX_PORT, REG_LOGICAL_DEVICE);     
-      IoWrite8 (SIO_DATA_PORT,  SIO_UART1);         
+      IoWrite8 (SIO_INDEX_PORT, REG_LOGICAL_DEVICE);
+      IoWrite8 (SIO_DATA_PORT,  SIO_UART1);
 
       //
       //active COM1
       //
-      IoWrite8 (SIO_INDEX_PORT, ACTIVATE);     
-      IoWrite8 (SIO_DATA_PORT,  1);        
-      
-      IoWrite8 (SIO_INDEX_PORT, SIO_LOCK); 
+      IoWrite8 (SIO_INDEX_PORT, ACTIVATE);
+      IoWrite8 (SIO_DATA_PORT,  1);
+
+      IoWrite8 (SIO_INDEX_PORT, SIO_LOCK);
 
     }
 }

@@ -2,7 +2,7 @@
 This utility is part of build process for IA32/X64 FD.
 It generates FIT table.
 
-Copyright (c) 2010-2019, Intel Corporation. All rights reserved.<BR>
+Copyright (c) 2010-2022, Intel Corporation. All rights reserved.<BR>
 SPDX-License-Identifier: BSD-2-Clause-Patent
 
 **/
@@ -48,12 +48,14 @@ typedef struct {
 #define ACM_PKCS_1_5_RSA_SIGNATURE_SHA384_SIZE          384
 
 #define ACM_HEADER_VERSION_3  (3 << 16)
+#define ACM_HEADER_VERSION_0  (0)
 #define ACM_MODULE_TYPE_CHIPSET_ACM                     2
 #define ACM_MODULE_SUBTYPE_CAPABLE_OF_EXECUTE_AT_RESET  0x1
 #define ACM_MODULE_SUBTYPE_ANC_MODULE                   0x2
 #define ACM_MODULE_FLAG_PREPRODUCTION                   0x4000
 #define ACM_MODULE_FLAG_DEBUG_SIGN                      0x8000
 
+#define NIBBLES_TO_BYTE(A, B)  (UINT8)(((A & (0x0F)) << 4) | (B & 0x0F))
 
 typedef struct {
   UINT16     ModuleType;
@@ -148,6 +150,20 @@ typedef struct {
   ACM_PROCESSOR_ID ProcessorID[1];
 } PROCESSOR_ID_LIST;
 
+typedef union {
+  struct {
+    UINT32  Stepping      : 4;
+    UINT32  Model         : 4;
+    UINT32  Family        : 4;
+    UINT32  Type          : 2;
+    UINT32  Reserved1     : 2;
+    UINT32  ExtendedModel : 4;
+    UINT32  ExtendedFamily: 8;
+    UINT32  Reserved2     : 4;
+  } Bits;
+  UINT32  Uint32;
+} PROCESSOR_ID;
+
 #pragma pack ()
 
 
@@ -203,20 +219,25 @@ typedef struct {
 
 #define MAX_BIOS_MODULE_ENTRY  0x20
 #define MAX_MICROCODE_ENTRY    0x20
+#define MAX_STARTUP_ACM_ENTRY  0x20
 #define MAX_OPTIONAL_ENTRY     0x20
 #define MAX_PORT_ENTRY         0x20
 
 #define DEFAULT_FIT_TABLE_POINTER_OFFSET  0x40
 #define DEFAULT_FIT_ENTRY_VERSION         0x0100
+#define STARTUP_ACM_FIT_ENTRY_200_VERSION 0x0200
+
+#define TOP_FLASH_ADDRESS  (gFitTableContext.TopFlashAddressRemapValue)
 
 #define MEMORY_TO_FLASH(FileBuffer, FvBuffer, FvSize)  \
-                 (UINTN)(0x100000000 - ((UINTN)(FvBuffer) + (UINTN)(FvSize) - (UINTN)(FileBuffer)))
+                 (UINTN)(TOP_FLASH_ADDRESS - ((UINTN)(FvBuffer) + (UINTN)(FvSize) - (UINTN)(FileBuffer)))
 #define FLASH_TO_MEMORY(Address, FvBuffer, FvSize)  \
-                 (VOID *)(UINTN)((UINTN)(FvBuffer) + (UINTN)(FvSize) - (0x100000000 - (UINTN)(Address)))
+                 (VOID *)(UINTN)((UINTN)(FvBuffer) + (UINTN)(FvSize) - (TOP_FLASH_ADDRESS - (UINTN)(Address)))
 
 #define FIT_TABLE_TYPE_HEADER                 0
 #define FIT_TABLE_TYPE_MICROCODE              1
 #define FIT_TABLE_TYPE_STARTUP_ACM            2
+#define FIT_TABLE_TYPE_DIAGNST_ACM            3
 #define FIT_TABLE_TYPE_BIOS_MODULE            7
 #define FIT_TABLE_TYPE_TPM_POLICY             8
 #define FIT_TABLE_TYPE_BIOS_POLICY            9
@@ -225,12 +246,25 @@ typedef struct {
 #define FIT_TABLE_TYPE_BOOT_POLICY_MANIFEST   12
 #define FIT_TABLE_TYPE_BIOS_DATA_AREA         13
 #define FIT_TABLE_TYPE_CSE_SECURE_BOOT        16
+#define FIT_TABLE_SUBTYPE_FIT_PATCH_MANIFEST  12
+#define FIT_TABLE_SUBTYPE_ACM_MANIFEST        13
 
+//
+// With OptionalModule Address isn't known until free space has been
+// identified and the optional module has been copied into the FLASH
+// image buffer (or initialized to be populated later by another program).
+// This is very dangerous code as it can truncate 64b pointers to
+// allocated memory buffers.  The full pointer is in Buffer for that case.
+//
 typedef struct {
   UINT32  Type;
+  UINT32  SubType; // Used by OptionalModule only
   UINT32  Address;
+  UINT8   *Buffer; // Used by OptionalModule only
   UINT32  Size;
   UINT32  Version; // Used by OptionalModule and PortModule only
+  UINT32  FMS;     // Used by Entry Type 02 (ACM) Ver. 0x200 only
+  UINT32  FMSMask; // Used by Entry Type 02 (ACM) Ver. 0x200 only
 } FIT_TABLE_CONTEXT_ENTRY;
 
 typedef struct {
@@ -240,19 +274,24 @@ typedef struct {
   UINT32                     FitEntryNumber;
   UINT32                     BiosModuleNumber;
   UINT32                     MicrocodeNumber;
+  UINT32                     StartupAcmNumber;
   UINT32                     OptionalModuleNumber;
   UINT32                     PortModuleNumber;
   UINT32                     GlobalVersion;
   UINT32                     FitHeaderVersion;
-  FIT_TABLE_CONTEXT_ENTRY    StartupAcm;
-  UINT32                     StartupAcmVersion;
+  FIT_TABLE_CONTEXT_ENTRY    StartupAcm[MAX_STARTUP_ACM_ENTRY];
+  UINT32                     StartupAcmVersion[MAX_STARTUP_ACM_ENTRY];
+  FIT_TABLE_CONTEXT_ENTRY    DiagnstAcm;
+  UINT32                     DiagnstAcmVersion;
   FIT_TABLE_CONTEXT_ENTRY    BiosModule[MAX_BIOS_MODULE_ENTRY];
   UINT32                     BiosModuleVersion;
   FIT_TABLE_CONTEXT_ENTRY    Microcode[MAX_MICROCODE_ENTRY];
-  BOOLEAN                    MicrocodeAlignment;
+  BOOLEAN                    MicrocodeIsAligned;
+  UINT32                     MicrocodeAlignValue;
   UINT32                     MicrocodeVersion;
   FIT_TABLE_CONTEXT_ENTRY    OptionalModule[MAX_OPTIONAL_ENTRY];
   FIT_TABLE_CONTEXT_ENTRY    PortModule[MAX_PORT_ENTRY];
+  UINT64                     TopFlashAddressRemapValue;
 } FIT_TABLE_CONTEXT;
 
 FIT_TABLE_CONTEXT   gFitTableContext = {0};
@@ -283,7 +322,7 @@ Returns:
 --*/
 {
   printf (
-    "%s - Tiano IA32/X64 FIT table generation Utility."" Version %i.%i\n\n",
+    "%s - Tiano IA32/X64 FIT table generation Utility for FIT spec revision 1.2."" Version %i.%i\n\n",
     UTILITY_NAME,
     UTILITY_MAJOR_VERSION,
     UTILITY_MINOR_VERSION
@@ -314,13 +353,19 @@ Returns:
           "\t[-V <FitEntryDefaultVersion>]\n"
           "\t[-F <FitTablePointerOffset>] [-F <FitTablePointerOffset>] [-V <FitHeaderVersion>]\n"
           "\t[-NA]\n"
+          "\t[-A <MicrocodeAlignment>]\n"
+          "\t[-REMAP <TopFlashAddress>\n"
           "\t[-CLEAR]\n"
+          "\t[-L <MicrocodeSlotSize> <MicrocodeFfsGuid>]\n"
+          "\t[-LF <MicrocodeSlotSize>]\n"
           "\t[-I <BiosInfoGuid>]\n"
-          "\t[-S <StartupAcmAddress StartupAcmSize>|<StartupAcmGuid>] [-V <StartupAcmVersion>]\n"
+          "\t[-S <StartupAcmAddress StartupAcmSize>|<StartupAcmGuid>] [-I <StartupAcmFMS StartupAcmFMSMask>] [-V <StartupAcmVersion>]\n"
+          "\t[-U <DiagnstAcmAddress>|<DiagnstAcmGuid>]\n"
           "\t[-B <BiosModuleAddress BiosModuleSize>] [-B ...] [-V <BiosModuleVersion>]\n"
           "\t[-M <MicrocodeAddress MicrocodeSize>] [-M ...]|[-U <MicrocodeFv MicrocodeBase>|<MicrocodeRegionOffset MicrocodeRegionSize>|<MicrocodeGuid>] [-V <MicrocodeVersion>]\n"
-          "\t[-O RecordType <RecordDataAddress RecordDataSize>|<RESERVE RecordDataSize>|<RecordDataGuid>|<RecordBinFile> [-V <RecordVersion>]] [-O ... [-V ...]]\n"
+          "\t[-O RecordType <RecordDataAddress RecordDataSize>|<RESERVE RecordDataSize>|<RecordDataGuid>|<RecordBinFile>|<CseRecordSubType RecordBinFile> [-V <RecordVersion>]] [-O ... [-V ...]]\n"
           "\t[-P RecordType <IndexPort DataPort Width Bit Index> [-V <RecordVersion>]] [-P ... [-V ...]]\n"
+          "\t[-T <FixedFitLocation>]\n"
           , UTILITY_NAME);
   printf ("  Where:\n");
   printf ("\t-D                     - It is FD file instead of FV file. (The tool will search FV file)\n");
@@ -329,8 +374,13 @@ Returns:
   printf ("\tFitTablePointerOffset  - FIT table pointer offset. 0x%x as default. 0x18 for current soon to be obsoleted CPUs. User can set both.\n", DEFAULT_FIT_TABLE_POINTER_OFFSET);
   printf ("\tBiosInfoGuid           - Guid of BiosInfo Module. If this module exists, StartupAcm/Bios/Microcode can be optional.\n");
   printf ("\tStartupAcmAddress      - Address of StartupAcm.\n");
-  printf ("\tStartupAcmSize         - Size of StartupAcm.\n");
+  printf ("\tStartupAcmSize         - The maximum size value that could place the StartupAcm in.\n");
   printf ("\tStartupAcmGuid         - Guid of StartupAcm Module, if StartupAcm is in a BiosModule, it will be excluded form that.\n");
+  printf ("\tStartupAcmFMS          - Value of PROCESSOR ID (Family/Model/Stepping value called \"FMS\") - see detail on FIT spec (1.3).\n");
+  printf ("\tStartupAcmFMSMask      - Value use for uCode (if it recognizes 0x200 Type2 entry) to do bitmask logic operation with CPU processor ID.\n");
+  printf ("\t                         If the result match to StartupAcmFMS, corresponding ACM will be loaded - see detail on FIT spec (1.3).\n");
+  printf ("\tDiagnstAcmAddress      - Address of DiagnstAcm.\n");
+  printf ("\tDiagnstAcmGuid         - Guid of DiagnstAcm Module, if DiagnstAcm is in a BiosModule, it will be excluded from that.\n");
   printf ("\tBiosModuleAddress      - Address of BiosModule. User should ensure there is no overlap.\n");
   printf ("\tBiosModuleSize         - Size of BiosModule.\n");
   printf ("\tMicrocodeAddress       - Address of Microcode.\n");
@@ -340,12 +390,17 @@ Returns:
   printf ("\tMicrocodeRegionOffset  - Offset of Microcode region in input FD image.\n");
   printf ("\tMicrocodeRegionSize    - Size of Microcode region in input FD image.\n");
   printf ("\tMicrocodeGuid          - Guid of Microcode Module.\n");
-  printf ("\t-NA                    - No 0x800 aligned Microcode requirement. No -NA means Microcode is 0x800 aligned.\n");
+  printf ("\tMicrocodeSlotSize      - Occupied region size of each Microcode binary.\n");
+  printf ("\tMicrocodeFfsGuid       - Guid of FFS which is used to save Microcode binary");
+  printf ("\t-LF                    - Microcode Slot mode without FFS check, treat all Microcode FV as slot mode. In this case the Microcode FV should only contain one FFS.\n");
+  printf ("\t-NA                    - No 0x800 aligned Microcode requirement. No -NA means Microcode is aligned with option MicrocodeAlignment value.\n");
+  printf ("\tMicrocodeAlignment     - HEX value of Microcode alignment. Ignored if \"-NA\" is specified. Default value is 0x800. The Microcode update data must start at a 16-byte aligned linear address.\n");
   printf ("\tRecordType             - FIT entry record type. User should ensure it is ordered.\n");
   printf ("\tRecordDataAddress      - FIT entry record data address.\n");
   printf ("\tRecordDataSize         - FIT entry record data size.\n");
   printf ("\tRecordDataGuid         - FIT entry record data GUID.\n");
   printf ("\tRecordBinFile          - FIT entry record data binary file.\n");
+  printf ("\tCseRecordSubType       - FIT entry record subtype. Use to further distinguish CSE entries (see FIT spec revision 1.2 chapter 4.12).\n");
   printf ("\tFitEntryDefaultVersion - The default version for all FIT table entries. 0x%04x is used if this is not specified.\n", DEFAULT_FIT_ENTRY_VERSION);
   printf ("\tFitHeaderVersion       - The version for FIT header. (Override default version)\n");
   printf ("\tStartupAcmVersion      - The version for StartupAcm. (Override default version)\n");
@@ -357,6 +412,7 @@ Returns:
   printf ("\tWidth                  - The Width of the port.\n");
   printf ("\tBit                    - The Bit Number of the port.\n");
   printf ("\tIndex                  - The Index Number of the port.\n");
+  printf ("\tFixedFitLocation       - Fixed FIT location in flash address. FIT table will be generated at this location and Option Modules will be directly put right before it.\n");
   printf ("\nUsage (view): %s [-view] InputFile -F <FitTablePointerOffset>\n", UTILITY_NAME);
   printf ("  Where:\n");
   printf ("\tInputFile              - Name of the input file.\n");
@@ -384,6 +440,74 @@ SetMem (
     *(Pointer++) = Value;
   }
   return Buffer;
+}
+
+BOOLEAN
+CheckPath (
+  IN CHAR8 * String
+)
+{
+  //
+  //Return FLASE if  input file path include % character or is NULL
+  //
+  CHAR8 *StrPtr;
+
+  StrPtr = String;
+  if (StrPtr == NULL) {
+    return FALSE;
+  }
+
+  if (*StrPtr == 0) {
+    return FALSE;
+  }
+
+  while (*StrPtr != '\0') {
+    if (*StrPtr == '%') {
+      return FALSE;
+    }
+    StrPtr++;
+  }
+  return TRUE;
+}
+
+UINT32
+GetFixedFitLocation (
+  IN INTN   argc,
+  IN CHAR8  **argv
+  )
+/*++
+
+Routine Description:
+
+  Get fixed FIT location from argument
+
+Arguments:
+
+  argc           - Number of command line parameters.
+  argv           - Array of pointers to parameter strings.
+
+Returns:
+
+  FitLocation - The FIT location specified by Argument
+  0           - Argument parse fail
+
+*/
+{
+  UINT32                      FitLocation;
+  INTN                        Index;
+
+  FitLocation = 0;
+
+  for (Index = 0; Index + 1 < argc; Index ++) {
+
+    if ((strcmp (argv[Index], "-T") == 0) ||
+        (strcmp (argv[Index], "-t") == 0) ) {
+      FitLocation =  xtoi (argv[Index + 1]);
+      break;
+    }
+  }
+
+  return FitLocation;
 }
 
 STATUS
@@ -416,6 +540,15 @@ Returns:
 {
   FILE                        *FpIn;
   UINT32                      TempResult;
+
+  //
+  //Check the File Path
+  //
+  if (!CheckPath(FileName)) {
+
+    Error (NULL, 0, 0, "File path is invalid!", NULL);
+    return STATUS_ERROR;
+  }
 
   //
   // Open the Input FvRecovery.fv file
@@ -572,9 +705,9 @@ Returns:
   UINT64                      FvLength;
   EFI_GUID                    *TempGuid;
   UINT8                       *FixPoint;
-  UINT32                      Offset;
-  UINT32                      FileLength;
-  UINT32                      FileOccupiedSize;
+  UINTN                       Offset;
+  UINTN                       FileLength;
+  UINTN                       FileOccupiedSize;
 
   //
   // Find the FFS file
@@ -592,7 +725,7 @@ Returns:
     InitializeFvLib (FvHeader, (UINT32)FvLength);
 
     FileHeader       = (EFI_FFS_FILE_HEADER *)((UINTN)FvHeader + FvHeader->HeaderLength);
-    Offset           = (UINT32) (UINTN) FileHeader - (UINT32) (UINTN) FvHeader;
+    Offset           = (UINTN) FileHeader - (UINTN) FvHeader;
 
     while (Offset < FvLength) {
       TempGuid = (EFI_GUID *)&(FileHeader->Name);
@@ -622,7 +755,7 @@ Returns:
         return FixPoint;
       }
       FileHeader = (EFI_FFS_FILE_HEADER *)((UINTN)FileHeader + FileOccupiedSize);
-      Offset = (UINT32) (UINTN) FileHeader - (UINT32) (UINTN) FvHeader;
+      Offset = (UINTN) FileHeader - (UINTN) FvHeader;
     }
 
     //
@@ -736,6 +869,37 @@ CheckOverlap (
   }
 }
 
+UINT8 *
+GetMicrocodeBufferFromFv (
+  EFI_FIRMWARE_VOLUME_HEADER *FvHeader
+  )
+{
+  UINT8 *MicrocodeBuffer;
+  EFI_FFS_FILE_HEADER *FfsHeader;
+
+  MicrocodeBuffer = NULL;
+  //
+  // Skip FV header + FV extension header + FFS header
+  //
+  FfsHeader = (EFI_FFS_FILE_HEADER *)((UINT8 *) FvHeader + FvHeader->HeaderLength);
+  while ((UINT8 *) FfsHeader < (UINT8 *) FvHeader + FvHeader->FvLength) {
+    if (FfsHeader->Type == EFI_FV_FILETYPE_RAW) {
+      //
+      // Find the first RAW ffs file as Microcode Buffer
+      //
+      MicrocodeBuffer = (UINT8 *)(FfsHeader + 1);
+      break;
+    }
+    if (GetFfsFileLength (FfsHeader) == 0xFFFFFF) {
+      // spare space is found, and exit
+      break;
+    }
+    FfsHeader = (EFI_FFS_FILE_HEADER *) ((UINT8 *) FfsHeader + ((GetFfsFileLength (FfsHeader)+7)&~7));
+  }
+
+  return MicrocodeBuffer;
+}
+
 UINT32
 GetFitEntryNumber (
   IN INTN   argc,
@@ -764,25 +928,35 @@ Returns:
 */
 {
   EFI_GUID  Guid;
+  EFI_GUID  MicrocodeFfsGuid;
   INTN      Index;
   UINT8     *FileBuffer;
   UINT32    FileSize;
   UINT32    Type;
+  UINT32    SubType;
   UINT8     *MicrocodeFileBuffer;
   UINT8     *MicrocodeFileBufferRaw;
   UINT32    MicrocodeFileSize;
   UINT32    MicrocodeBase;
   UINT32    MicrocodeSize;
   UINT8     *MicrocodeBuffer;
+  UINT32    MicrocodeBufferSize;
+  UINT8     *Walker;
   UINT32    MicrocodeRegionOffset;
   UINT32    MicrocodeRegionSize;
+  UINT32    SlotSize;
   STATUS    Status;
   EFI_FIRMWARE_VOLUME_HEADER  *FvHeader;
   UINTN                       FitEntryNumber;
   BOOLEAN                     BiosInfoExist;
+  BOOLEAN                     SlotMode;
+  BOOLEAN                     SlotModeForce;
   BIOS_INFO_HEADER            *BiosInfo;
   BIOS_INFO_STRUCT            *BiosInfoStruct;
   UINTN                       BiosInfoIndex;
+
+  SlotMode      = FALSE;
+  SlotModeForce = FALSE;
 
   //
   // Init index
@@ -865,19 +1039,42 @@ Returns:
   //
   if ((Index >= argc) ||
       ((strcmp (argv[Index], "-NA") != 0) &&
-       (strcmp (argv[Index], "-na") != 0)) ) {
+       (strcmp (argv[Index], "-na") != 0) &&
+       (strcmp (argv[Index], "-A") != 0) &&
+       (strcmp (argv[Index], "-a") != 0))) {
     //
     // by pass
     //
-    gFitTableContext.MicrocodeAlignment = TRUE;
-  } else {
-    //
-    // no alignment
-    //
-    gFitTableContext.MicrocodeAlignment = FALSE;
+    gFitTableContext.MicrocodeIsAligned = TRUE;
+    gFitTableContext.MicrocodeAlignValue = 0x800;
+  } else if ((strcmp (argv[Index], "-NA") == 0) || (strcmp (argv[Index], "-na") == 0)) {
+    gFitTableContext.MicrocodeIsAligned = FALSE;
+    gFitTableContext.MicrocodeAlignValue = 1;
     Index += 1;
+  } else if ((strcmp (argv[Index], "-A") == 0) || (strcmp (argv[Index], "-a") == 0)) {
+    gFitTableContext.MicrocodeIsAligned = TRUE;
+    //
+    // Get alignment from parameter
+    //
+    gFitTableContext.MicrocodeAlignValue = xtoi (argv[Index + 1]);;
+    Index += 2;
   }
 
+  if ((Index >= argc) ||
+      ((strcmp (argv[Index], "-REMAP") == 0) ||
+       (strcmp (argv[Index], "-remap") == 0)) ) {
+    //
+    // by pass
+    //
+    gFitTableContext.TopFlashAddressRemapValue = xtoi (argv[Index + 1]);
+    Index += 2;
+  } else {
+    //
+    // no remapping
+    //
+    gFitTableContext.TopFlashAddressRemapValue = 0x100000000;
+  }
+  printf ("Top Flash Address Value : 0x%llx\n", (unsigned long long) gFitTableContext.TopFlashAddressRemapValue);
   //
   // 0.4 Clear FIT table related memory
   //
@@ -900,7 +1097,39 @@ Returns:
   }
 
   //
-  // 0.5 BiosInfo
+  // 0.5 SlotSize
+  //
+  if ((Index + 1 >= argc) ||
+      ((strcmp (argv[Index], "-L") != 0) &&
+       (strcmp (argv[Index], "-l") != 0) &&
+       (strcmp (argv[Index], "-LF") != 0) &&
+       (strcmp (argv[Index], "-lf") != 0))) {
+    //
+    // Bypass
+    //
+    SlotSize = 0;
+  } else {
+    SlotSize = xtoi (argv[Index + 1]);
+
+    if (SlotSize == 0 || SlotSize & 0xF) {
+      printf ("Invalid slotsize = 0x%x, slot size should not be zero, or start at a non-16-byte aligned linear address!\n", SlotSize);
+      return 0;
+    }
+    if (strcmp (argv[Index], "-LF") == 0 || strcmp (argv[Index], "-lf") == 0) {
+      SlotModeForce = TRUE;
+      Index += 2;
+    } else {
+      SlotMode = IsGuidData(argv[Index + 2], &MicrocodeFfsGuid);
+      if (!SlotMode) {
+        printf ("Need a ffs GUID for search uCode ffs\n");
+        return 0;
+      }
+      Index += 3;
+    }
+  }
+
+  //
+  // 0.6 BiosInfo
   //
   if ((Index + 1 >= argc) ||
       ((strcmp (argv[Index], "-I") != 0) &&
@@ -943,14 +1172,29 @@ Returns:
           Error (NULL, 0, 0, "-I Parameter incorrect, Header Type unsupported!", NULL);
           return 0;
         case FIT_TABLE_TYPE_STARTUP_ACM:
-          if (gFitTableContext.StartupAcm.Type != 0) {
-            Error (NULL, 0, 0, "-I Parameter incorrect, Duplicated StartupAcm!", NULL);
+          if (gFitTableContext.StartupAcmNumber >= MAX_STARTUP_ACM_ENTRY) {
+            Error (NULL, 0, 0, "-I Parameter incorrect, too many StartupAcm!", NULL);
             return 0;
           }
-          gFitTableContext.StartupAcm.Type    = FIT_TABLE_TYPE_STARTUP_ACM;
-          gFitTableContext.StartupAcm.Address = (UINT32)BiosInfoStruct[BiosInfoIndex].Address;
-          gFitTableContext.StartupAcm.Size    = (UINT32)BiosInfoStruct[BiosInfoIndex].Size;
-          gFitTableContext.StartupAcmVersion  = BiosInfoStruct[BiosInfoIndex].Version;
+          //
+          // NOTE: BIOS INFO structure only support the default FIT entry format.
+          //
+          gFitTableContext.StartupAcm[gFitTableContext.StartupAcmNumber].Type    = FIT_TABLE_TYPE_STARTUP_ACM;
+          gFitTableContext.StartupAcm[gFitTableContext.StartupAcmNumber].Address = (UINT32)BiosInfoStruct[BiosInfoIndex].Address;
+          gFitTableContext.StartupAcm[gFitTableContext.StartupAcmNumber].Size    = (UINT32)BiosInfoStruct[BiosInfoIndex].Size;
+          gFitTableContext.StartupAcmVersion[gFitTableContext.StartupAcmNumber]  = BiosInfoStruct[BiosInfoIndex].Version;
+          gFitTableContext.StartupAcmNumber ++;
+          gFitTableContext.FitEntryNumber ++;
+          break;
+        case FIT_TABLE_TYPE_DIAGNST_ACM:
+          if (gFitTableContext.DiagnstAcm.Type != 0) {
+            Error (NULL, 0, 0, "-U Parameter incorrect, Duplicated DiagnosticsAcm!", NULL);
+            return 0;
+          }
+          gFitTableContext.DiagnstAcm.Type    = FIT_TABLE_TYPE_DIAGNST_ACM;
+          gFitTableContext.DiagnstAcm.Address = (UINT32)BiosInfoStruct[BiosInfoIndex].Address;
+          gFitTableContext.DiagnstAcm.Size    = 0;
+          gFitTableContext.DiagnstAcmVersion  = DEFAULT_FIT_ENTRY_VERSION;
           gFitTableContext.FitEntryNumber ++;
           break;
         case FIT_TABLE_TYPE_BIOS_MODULE:
@@ -1002,11 +1246,20 @@ Returns:
 
             FvHeader = (EFI_FIRMWARE_VOLUME_HEADER *)MicrocodeFileBuffer;
             if (FvHeader->Signature == EFI_FVH_SIGNATURE) {
-              // Skip FV header + FFS header
-              MicrocodeBuffer = MicrocodeFileBuffer + sizeof(EFI_FIRMWARE_VOLUME_HEADER) + sizeof(EFI_FV_BLOCK_MAP_ENTRY) + sizeof(EFI_FFS_FILE_HEADER);
+              MicrocodeBuffer = GetMicrocodeBufferFromFv (FvHeader);
             } else {
               MicrocodeBuffer = MicrocodeFileBuffer;
             }
+
+            if (SlotMode) {
+              MicrocodeBuffer = FindFileFromFvByGuid(MicrocodeFileBuffer, MicrocodeFileSize, &MicrocodeFfsGuid, &MicrocodeBufferSize);
+              if (MicrocodeBuffer == NULL) {
+                printf ("-L Parameter incorrect, GUID not found\n");
+                // not found
+                return 0;
+              }
+            }
+
             while ((UINT32)(MicrocodeBuffer - MicrocodeFileBuffer) < MicrocodeFileSize) {
               if (*(UINT32 *)(MicrocodeBuffer) != 0x1) { // HeaderVersion
                 break;
@@ -1020,8 +1273,12 @@ Returns:
                 //
                 // MCU might be put at 2KB alignment, if so, we need to adjust the size as 2KB alignment.
                 //
-                if (gFitTableContext.MicrocodeAlignment) {
-                  MicrocodeSize = (*(UINT32 *)(MicrocodeBuffer + 32) + MICROCODE_ALIGNMENT) & ~MICROCODE_ALIGNMENT;
+                if (gFitTableContext.MicrocodeIsAligned) {
+                  if (gFitTableContext.MicrocodeAlignValue & 0xF) {
+                    printf ("-A Parameter incorrect, Microcode data must start at a 16-byte aligned linear address!\n");
+                    return 0;
+                  }
+                  MicrocodeSize = ROUNDUP (*(UINT32 *)(MicrocodeBuffer + 32), gFitTableContext.MicrocodeAlignValue);
                 } else {
                   MicrocodeSize = (*(UINT32 *)(MicrocodeBuffer + 32));
                 }
@@ -1035,12 +1292,44 @@ Returns:
                 return 0;
               }
               gFitTableContext.Microcode[gFitTableContext.MicrocodeNumber].Type = FIT_TABLE_TYPE_MICROCODE;
-              gFitTableContext.Microcode[gFitTableContext.MicrocodeNumber].Address = MicrocodeBase + ((UINT32) (UINTN) MicrocodeBuffer - (UINT32) (UINTN) MicrocodeFileBuffer);
+              gFitTableContext.Microcode[gFitTableContext.MicrocodeNumber].Address = MicrocodeBase + (UINT32)((UINTN) MicrocodeBuffer - (UINTN) MicrocodeFileBuffer);
               gFitTableContext.Microcode[gFitTableContext.MicrocodeNumber].Size = MicrocodeSize;
               gFitTableContext.MicrocodeNumber++;
               gFitTableContext.FitEntryNumber++;
 
-              MicrocodeBuffer += MicrocodeSize;
+              if (SlotSize != 0) {
+                if (SlotSize < MicrocodeSize) {
+                  printf ("Parameter incorrect, Slot size: %x is too small for Microcode size: %x!\n", SlotSize, MicrocodeSize);
+                  return 0;
+                }
+                MicrocodeBuffer += SlotSize;
+              } else {
+                MicrocodeBuffer += MicrocodeSize;
+              }
+            }
+
+            ///
+            /// Check the remaining buffer
+            ///
+            if (((UINT32)(MicrocodeBuffer - MicrocodeFileBuffer) < MicrocodeFileSize) && (SlotMode || SlotModeForce)) {
+              for (Walker = MicrocodeBuffer; Walker < MicrocodeFileBuffer + MicrocodeFileSize; Walker++) {
+                if (*Walker != 0xFF) {
+                  printf ("Error: detect non-spare space after uCode array, please check uCode array!\n");
+                  return 0;
+                }
+              }
+
+              ///
+              /// Split the spare space as empty buffer for save uCode patch.
+              ///
+              while (MicrocodeBuffer + SlotSize <= MicrocodeFileBuffer + MicrocodeFileSize) {
+                gFitTableContext.Microcode[gFitTableContext.MicrocodeNumber].Type = FIT_TABLE_TYPE_MICROCODE;
+                gFitTableContext.Microcode[gFitTableContext.MicrocodeNumber].Address = MicrocodeBase + (UINT32)((UINTN) MicrocodeBuffer - (UINTN) MicrocodeFileBuffer);
+                gFitTableContext.MicrocodeNumber++;
+                gFitTableContext.FitEntryNumber++;
+
+                MicrocodeBuffer += SlotSize;
+              }
             }
           }
           break;
@@ -1089,16 +1378,15 @@ Returns:
   //
   // 1. StartupAcm
   //
-  do {
+  while (TRUE) {
     if ((Index + 1 >= argc) ||
         ((strcmp (argv[Index], "-S") != 0) &&
          (strcmp (argv[Index], "-s") != 0)) ) {
-      if (BiosInfoExist && (gFitTableContext.StartupAcm.Type == FIT_TABLE_TYPE_STARTUP_ACM)) {
-        break;
+      if (gFitTableContext.StartupAcmNumber == 0) {
+        printf ("-S not found. WARNING!\n");
       }
 //      Error (NULL, 0, 0, "-S Parameter incorrect, expect -S!", NULL);
 //      return 0;
-      printf ("-S not found. WARNING!\n");
       break;
     }
     if (IsGuidData (argv[Index + 1], &Guid)) {
@@ -1119,17 +1407,46 @@ Returns:
       FileSize = xtoi (argv[Index + 2]);
       Index += 3;
     }
-    if (gFitTableContext.StartupAcm.Type != 0) {
-      Error (NULL, 0, 0, "-S Parameter incorrect, Duplicated StartupAcm!", NULL);
+    if (gFitTableContext.StartupAcmNumber >= MAX_STARTUP_ACM_ENTRY) {
+      Error (NULL, 0, 0, "-S Parameter incorrect, too many StartupAcm!", NULL);
       return 0;
     }
-    gFitTableContext.StartupAcm.Type = FIT_TABLE_TYPE_STARTUP_ACM;
-    gFitTableContext.StartupAcm.Address = (UINT32) (UINTN) FileBuffer;
-    gFitTableContext.StartupAcm.Size = FileSize;
-    gFitTableContext.FitEntryNumber ++;
+    gFitTableContext.StartupAcm[gFitTableContext.StartupAcmNumber].Type = FIT_TABLE_TYPE_STARTUP_ACM;
+    gFitTableContext.StartupAcm[gFitTableContext.StartupAcmNumber].Address = (UINT32) (UINTN) FileBuffer;
+    gFitTableContext.StartupAcm[gFitTableContext.StartupAcmNumber].Size = FileSize;
 
     //
-    // 1.1 StartupAcm version
+    // 1.1 Support 0x200 StartupAcm Information
+    //     With the -I parameter should assign the type 2 entry with 0x200 version format
+    //
+    if ((Index + 1 >= argc) ||
+        ((strcmp (argv[Index], "-I") != 0) &&
+         (strcmp (argv[Index], "-i") != 0)) ) {
+      //
+      // Bypass
+      //
+      gFitTableContext.StartupAcmVersion[gFitTableContext.StartupAcmNumber] = gFitTableContext.GlobalVersion;
+    } else {
+      if (Index + 2 >= argc) {
+        //
+        // Should get two input value, but not sufficient
+        //
+        Error (NULL, 0, 0, "-I Parameter incorrect, Require two inputs value!", NULL);
+        return 0;
+      } else {
+        //
+        // With the -I parameter should assign the type 2 entry version as 0x200 format
+        //
+        gFitTableContext.StartupAcmVersion[gFitTableContext.StartupAcmNumber] = STARTUP_ACM_FIT_ENTRY_200_VERSION;
+        gFitTableContext.StartupAcm[gFitTableContext.StartupAcmNumber].FMS = (UINT32)xtoi (argv[Index + 1]);
+        gFitTableContext.StartupAcm[gFitTableContext.StartupAcmNumber].FMSMask = (UINT32)xtoi (argv[Index + 2]);
+
+        Index += 3;
+      }
+    }
+
+    //
+    // 1.2 StartupAcm version
     //
     if ((Index + 1 >= argc) ||
         ((strcmp (argv[Index], "-V") != 0) &&
@@ -1137,17 +1454,53 @@ Returns:
       //
       // Bypass
       //
-      gFitTableContext.StartupAcmVersion = gFitTableContext.GlobalVersion;
     } else {
       //
       // Get offset from parameter
       //
-      gFitTableContext.StartupAcmVersion = xtoi (argv[Index + 1]);
+      gFitTableContext.StartupAcmVersion[gFitTableContext.StartupAcmNumber] = xtoi (argv[Index + 1]);
       Index += 2;
     }
-  } while (FALSE);
+
+    gFitTableContext.StartupAcmNumber ++;
+    gFitTableContext.FitEntryNumber ++;
+  };
 
   //
+  // 1.5. DiagnosticsAcm
+  //
+  do {
+    if ((Index + 1 >= argc) ||
+        ((strcmp (argv[Index], "-U") != 0) &&
+         (strcmp (argv[Index], "-u") != 0)) ) {
+      if (BiosInfoExist && (gFitTableContext.DiagnstAcm.Type == FIT_TABLE_TYPE_DIAGNST_ACM)) {
+        break;
+      }
+      break;
+    }
+    if (IsGuidData (argv[Index + 1], &Guid)) {
+      FileBuffer = FindFileFromFvByGuid (FdBuffer, FdSize, &Guid, &FileSize);
+      if (FileBuffer == NULL) {
+        Error (NULL, 0, 0, "-U Parameter incorrect, GUID not found!", "%s", argv[Index + 1]);
+        return 0;
+      }
+      FileBuffer = (UINT8 *)MEMORY_TO_FLASH (FileBuffer, FdBuffer, FdSize);
+      Index += 2;
+    } else {
+      FileBuffer = (UINT8 *) (UINTN) xtoi (argv[Index + 1]);
+      Index += 2;
+    }
+    if (gFitTableContext.DiagnstAcm.Type != 0) {
+      Error (NULL, 0, 0, "-U Parameter incorrect, Duplicated DiagnosticsAcm!", NULL);
+      return 0;
+    }
+    gFitTableContext.DiagnstAcm.Type = FIT_TABLE_TYPE_DIAGNST_ACM;
+    gFitTableContext.DiagnstAcm.Address = (UINT32) (UINTN) FileBuffer;
+    gFitTableContext.DiagnstAcm.Size = 0;
+    gFitTableContext.FitEntryNumber ++;
+    gFitTableContext.DiagnstAcmVersion = DEFAULT_FIT_ENTRY_VERSION;
+  } while (FALSE);
+
   // 2. BiosModule
   //
   do {
@@ -1305,8 +1658,7 @@ Returns:
 
         FvHeader = (EFI_FIRMWARE_VOLUME_HEADER *)MicrocodeFileBuffer;
         if (FvHeader->Signature == EFI_FVH_SIGNATURE) {
-          // Skip FV header + FFS header
-          MicrocodeBuffer = MicrocodeFileBuffer + sizeof(EFI_FIRMWARE_VOLUME_HEADER) + sizeof(EFI_FV_BLOCK_MAP_ENTRY) + sizeof(EFI_FFS_FILE_HEADER);
+          MicrocodeBuffer = GetMicrocodeBufferFromFv (FvHeader);
         } else {
           MicrocodeBuffer = MicrocodeFileBuffer;
         }
@@ -1318,8 +1670,7 @@ Returns:
 
         FvHeader = (EFI_FIRMWARE_VOLUME_HEADER *)MicrocodeFileBuffer;
         if (FvHeader->Signature == EFI_FVH_SIGNATURE) {
-          // Skip FV header + FFS header
-          MicrocodeBuffer = MicrocodeFileBuffer + sizeof(EFI_FIRMWARE_VOLUME_HEADER) + sizeof(EFI_FV_BLOCK_MAP_ENTRY) + sizeof(EFI_FFS_FILE_HEADER);
+          MicrocodeBuffer = GetMicrocodeBufferFromFv (FvHeader);
         } else {
           MicrocodeBuffer = MicrocodeFileBuffer;
         }
@@ -1338,8 +1689,8 @@ Returns:
         //
         // MCU might be put at 2KB alignment, if so, we need to adjust the size as 2KB alignment.
         //
-        if (gFitTableContext.MicrocodeAlignment) {
-          MicrocodeSize = (*(UINT32 *)(MicrocodeBuffer + 32) + MICROCODE_ALIGNMENT) & ~MICROCODE_ALIGNMENT;
+        if (gFitTableContext.MicrocodeIsAligned) {
+          MicrocodeSize = (*(UINT32 *)(MicrocodeBuffer + 32) + (gFitTableContext.MicrocodeAlignValue - 1)) & ~(gFitTableContext.MicrocodeAlignValue - 1);
         } else {
           MicrocodeSize = (*(UINT32 *)(MicrocodeBuffer + 32));
         }
@@ -1353,7 +1704,7 @@ Returns:
         return 0;
       }
       gFitTableContext.Microcode[gFitTableContext.MicrocodeNumber].Type = FIT_TABLE_TYPE_MICROCODE;
-      gFitTableContext.Microcode[gFitTableContext.MicrocodeNumber].Address = MicrocodeBase + ((UINT32) (UINTN) MicrocodeBuffer - (UINT32) (UINTN) MicrocodeFileBuffer);
+      gFitTableContext.Microcode[gFitTableContext.MicrocodeNumber].Address = MicrocodeBase + (UINT32)((UINTN) MicrocodeBuffer - (UINTN) MicrocodeFileBuffer);
       gFitTableContext.Microcode[gFitTableContext.MicrocodeNumber].Size = MicrocodeSize;
       gFitTableContext.MicrocodeNumber++;
       gFitTableContext.FitEntryNumber++;
@@ -1398,26 +1749,22 @@ Returns:
     }
     Type = xtoi (argv[Index + 1]);
     //
-    // 1st, try GUID
+    // 1st, try CSE entry sub-type
     //
-    if (IsGuidData (argv[Index + 2], &Guid)) {
-      FileBuffer = FindFileFromFvByGuid (FdBuffer, FdSize, &Guid, &FileSize);
-      if (FileBuffer == NULL) {
-        Error (NULL, 0, 0, "-O Parameter incorrect, GUID not found!", "%s", argv[Index + 2]);
-        // not found
+    SubType = 0;
+    if (Type == FIT_TABLE_TYPE_CSE_SECURE_BOOT) {
+      if (Index + 3 >= argc) {
+        break;
+      }
+      SubType = xtoi (argv[Index + 2]);
+      //
+      // try file
+      //
+      if (SubType != FIT_TABLE_SUBTYPE_FIT_PATCH_MANIFEST && SubType != FIT_TABLE_SUBTYPE_ACM_MANIFEST) {
+        Error (NULL, 0, 0, "-O Parameter incorrect, SubType unsupported!", NULL);
         return 0;
       }
-      if (FileSize >= 0x80000000) {
-        Error (NULL, 0, 0, "-O Parameter incorrect, FileSize too large!", NULL);
-        return 0;
-      }
-      FileBuffer = (UINT8 *)MEMORY_TO_FLASH (FileBuffer, FdBuffer, FdSize);
-      Index += 3;
-    } else {
-      //
-      // 2nd, try file
-      //
-      Status = ReadInputFile (argv[Index + 2], &FileBuffer, &FileSize, NULL);
+      Status = ReadInputFile (argv[Index + 3], &FileBuffer, &FileSize, NULL);
       if (Status == STATUS_SUCCESS) {
         if (FileSize >= 0x80000000) {
           Error (NULL, 0, 0, "-O Parameter incorrect, FileSize too large!", NULL);
@@ -1430,48 +1777,90 @@ Returns:
         // Assume the file size should < 2G.
         //
         FileSize |= 0x80000000;
+        Index += 4;
+      } else {
+        if (Status == STATUS_WARNING) {
+          Error (NULL, 0, 0, "-O Parameter incorrect, Unable to open file", argv[Index + 3]);
+        }
+        return 0;
+      }
+    } else {
+      //
+      // 2nd, try GUID
+      //
+      if (IsGuidData (argv[Index + 2], &Guid)) {
+        FileBuffer = FindFileFromFvByGuid (FdBuffer, FdSize, &Guid, &FileSize);
+        if (FileBuffer == NULL) {
+          Error (NULL, 0, 0, "-O Parameter incorrect, GUID not found!", "%s", argv[Index + 2]);
+          // not found
+          return 0;
+        }
+        if (FileSize >= 0x80000000) {
+          Error (NULL, 0, 0, "-O Parameter incorrect, FileSize too large!", NULL);
+          return 0;
+        }
+      FileBuffer = (UINT8 *)MEMORY_TO_FLASH (FileBuffer, FdBuffer, FdSize);
         Index += 3;
       } else {
         //
-        // 3rd, try <RESERVE, Length>
+        // 3rd, try file
         //
-        if (Index + 3 >= argc) {
-          break;
-        }
-        if ((strcmp (argv[Index + 2], "RESERVE") == 0) ||
-            (strcmp (argv[Index + 2], "reserve") == 0)) {
-          FileSize = xtoi (argv[Index + 3]);
+        Status = ReadInputFile (argv[Index + 2], &FileBuffer, &FileSize, NULL);
+        if (Status == STATUS_SUCCESS) {
           if (FileSize >= 0x80000000) {
             Error (NULL, 0, 0, "-O Parameter incorrect, FileSize too large!", NULL);
+            free (FileBuffer);
             return 0;
           }
-          FileBuffer = malloc (FileSize);
-          if (FileBuffer == NULL) {
-            Error (NULL, 0, 0, "No sufficient memory to allocate!", NULL);
-            return 0;
-          }
-          SetMem (FileBuffer, FileSize, 0xFF);
           //
           // Set the most significant bit
           // It means the data in memory, not in flash yet.
           // Assume the file size should < 2G.
           //
           FileSize |= 0x80000000;
-          Index += 4;
+          Index += 3;
         } else {
           //
-          // 4th, try <Address, Length>
+          // 4th, try <RESERVE, Length>
           //
           if (Index + 3 >= argc) {
             break;
           }
-          FileBuffer = (UINT8 *) (UINTN) xtoi (argv[Index + 2]);
-          FileSize = xtoi (argv[Index + 3]);
-          if (FileSize >= 0x80000000) {
-            Error (NULL, 0, 0, "-O Parameter incorrect, FileSize too large!", NULL);
-            return 0;
+          if ((strcmp (argv[Index + 2], "RESERVE") == 0) ||
+              (strcmp (argv[Index + 2], "reserve") == 0)) {
+            FileSize = xtoi (argv[Index + 3]);
+            if (FileSize >= 0x80000000) {
+              Error (NULL, 0, 0, "-O Parameter incorrect, FileSize too large!", NULL);
+              return 0;
+            }
+            FileBuffer = malloc (FileSize);
+            if (FileBuffer == NULL) {
+              Error (NULL, 0, 0, "No sufficient memory to allocate!", NULL);
+              return 0;
+            }
+            SetMem (FileBuffer, FileSize, 0xFF);
+            //
+            // Set the most significant bit
+            // It means the data in memory, not in flash yet.
+            // Assume the file size should < 2G.
+            //
+            FileSize |= 0x80000000;
+            Index += 4;
+          } else {
+            //
+            // 5th, try <Address, Length>
+            //
+            if (Index + 3 >= argc) {
+              break;
+            }
+            FileBuffer = (UINT8 *) (UINTN) xtoi (argv[Index + 2]);
+            FileSize = xtoi (argv[Index + 3]);
+            if (FileSize >= 0x80000000) {
+              Error (NULL, 0, 0, "-O Parameter incorrect, FileSize too large!", NULL);
+              return 0;
+            }
+            Index += 4;
           }
-          Index += 4;
         }
       }
     }
@@ -1481,7 +1870,11 @@ Returns:
       return 0;
     }
     gFitTableContext.OptionalModule[gFitTableContext.OptionalModuleNumber].Type = Type;
+    if (gFitTableContext.OptionalModule[gFitTableContext.OptionalModuleNumber].Type == FIT_TABLE_TYPE_CSE_SECURE_BOOT) {
+      gFitTableContext.OptionalModule[gFitTableContext.OptionalModuleNumber].SubType = SubType;
+    }
     gFitTableContext.OptionalModule[gFitTableContext.OptionalModuleNumber].Address = (UINT32) (UINTN) FileBuffer;
+    gFitTableContext.OptionalModule[gFitTableContext.OptionalModuleNumber].Buffer = FileBuffer;
     gFitTableContext.OptionalModule[gFitTableContext.OptionalModuleNumber].Size = FileSize;
 
     //
@@ -1554,7 +1947,9 @@ Returns:
   //
   // Final: Check StartupAcm in BiosModule.
   //
-  CheckOverlap (gFitTableContext.StartupAcm.Address, gFitTableContext.StartupAcm.Size);
+  for (Index = 0; Index < (INTN)gFitTableContext.StartupAcmNumber; Index++) {
+    CheckOverlap (gFitTableContext.StartupAcm[Index].Address, gFitTableContext.StartupAcm[Index].Size);
+  }
   FitEntryNumber = gFitTableContext.FitEntryNumber;
   for (Index = 0; Index < (INTN)gFitTableContext.OptionalModuleNumber; Index++) {
     if ((gFitTableContext.OptionalModule[Index].Type == FIT_TABLE_TYPE_BIOS_POLICY) ||
@@ -1615,10 +2010,11 @@ Returns:
 }
 
 VOID *
-GetFreeSpaceFromFv (
+GetFreeSpaceForFit (
   IN UINT8     *FvBuffer,
   IN UINT32    FvSize,
-  IN UINT32    FitEntryNumber
+  IN UINT32    FitTableSize,
+  IN UINT32    FixedFitLocation
   )
 /*++
 
@@ -1628,9 +2024,10 @@ Routine Description:
 
 Arguments:
 
-  FvBuffer       - FvRecovery binary buffer
-  FvSize         - FvRecovery size
-  FitEntryNumber - The FIT entry number
+  FvBuffer         - FvRecovery binary buffer
+  FvSize           - FvRecovery size
+  FitTableSize     - The FIT table size
+  FixedFitLocation - Fixed FIT location provided by argument
 
 Returns:
 
@@ -1645,7 +2042,6 @@ Returns:
   UINT8       *OptionalModuleAddress;
   EFI_GUID    VTFGuid = EFI_FFS_VOLUME_TOP_FILE_GUID;
   UINT32      AlignedSize;
-  UINT32      FitTableSize;
 
   EFI_FIRMWARE_VOLUME_HEADER  *FvHeader;
   EFI_FFS_FILE_HEADER         *FileHeader;
@@ -1672,45 +2068,62 @@ Returns:
     }
   }
 
-  //
-  // Get EFI_FFS_VOLUME_TOP_FILE_GUID location
-  //
-  FitTableOffset = NULL;
+  if (FixedFitLocation != 0) {
+    //
+    // Get Free space from fixed location
+    //
+    FitTableOffset = (UINT8 *) FLASH_TO_MEMORY (FixedFitLocation, FvBuffer, FvSize);
+  } else {
+    //
+    // Get Free Space from FvRecovery
+    //
+    FitTableOffset = NULL;
 
-  FvHeader         = (EFI_FIRMWARE_VOLUME_HEADER *)FvBuffer;
-  FvLength         = FvHeader->FvLength;
-  FileHeader       = (EFI_FFS_FILE_HEADER *)(FvBuffer + FvHeader->HeaderLength);
-  Offset           = (UINTN)FileHeader - (UINTN)FvBuffer;
+    FvHeader         = (EFI_FIRMWARE_VOLUME_HEADER *)FvBuffer;
+    FvLength         = FvHeader->FvLength;
+    FileHeader       = (EFI_FFS_FILE_HEADER *)(FvBuffer + FvHeader->HeaderLength);
+    Offset           = (UINTN)FileHeader - (UINTN)FvBuffer;
 
-  while (Offset < FvLength) {
-    FileLength = (*(UINT32 *)(FileHeader->Size)) & 0x00FFFFFF;
-    FileOccupiedSize = GETOCCUPIEDSIZE(FileLength, 8);
-    if ((CompareGuid (&(FileHeader->Name), &VTFGuid)) == 0) {
-      // find it
-      FitTableOffset = (UINT8 *)FileHeader;
-      break;
+    //
+    // Get EFI_FFS_VOLUME_TOP_FILE_GUID location
+    //
+    while (Offset < FvLength) {
+      FileLength = (*(UINT32 *)(FileHeader->Size)) & 0x00FFFFFF;
+      FileOccupiedSize = GETOCCUPIEDSIZE(FileLength, 8);
+      if ((CompareGuid (&(FileHeader->Name), &VTFGuid)) == 0) {
+        // find it
+        FitTableOffset = (UINT8 *)FileHeader;
+        break;
+      }
+      FileHeader = (EFI_FFS_FILE_HEADER *)((UINTN)FileHeader + FileOccupiedSize);
+      Offset = (UINTN)FileHeader - (UINTN)FvBuffer;
     }
-    FileHeader = (EFI_FFS_FILE_HEADER *)((UINTN)FileHeader + FileOccupiedSize);
-    Offset = (UINTN)FileHeader - (UINTN)FvBuffer;
+
+    if (FitTableOffset == NULL) {
+      Error (NULL, 0, 0, "EFI_FFS_VOLUME_TOP_FILE_GUID not found!", NULL);
+      return NULL;
+    }
+
+    FitTableOffset = (UINT8 *)((UINTN)FitTableOffset & ~FIT_ALIGNMENT);
+    FitTableOffset = (UINT8 *)(FitTableOffset - FitTableSize);
   }
-
-  if (FitTableOffset == NULL) {
-    Error (NULL, 0, 0, "EFI_FFS_VOLUME_TOP_FILE_GUID not found!", NULL);
-    return NULL;
-  }
-
-  FitTableSize = FitEntryNumber * sizeof(FIRMWARE_INTERFACE_TABLE_ENTRY);
-  FitTableSize += FIT_ALIGNMENT;
-  FitTableSize &= ~FIT_ALIGNMENT;
-
-  FitTableOffset = (UINT8 *)((UINTN)FitTableOffset & ~FIT_ALIGNMENT);
-  FitTableOffset = (UINT8 *)(FitTableOffset - FitTableSize);
 
   //
-  // Check it
+  // Check the target space for FIT table
+  //
+  // 1. If FIT table has a fixed location, we assume users can provide an empty space for FIT table
+  // and Option Modules.
+  // 2. If FIT table location is dynamicly calculated in FvRecovery, we give a last chance to skip
+  // space for AP Vector.
   //
   for (Index = 0; Index < (INTN)(FitTableSize); Index ++) {
     if (FitTableOffset[Index] != 0xFF) {
+
+      if (FixedFitLocation != 0) {
+        Error (NULL, 0, 0, "Reserved space for FIT table is not empty!", NULL);
+        return NULL;
+      }
+
       //
       // No enough space - it might happen that it is occupied by AP wake vector.
       // Last chance - skip this and search again.
@@ -1760,6 +2173,12 @@ Returns:
 
       for (SubIndex = 0; SubIndex < (INTN)(AlignedSize); SubIndex ++) {
         if (OptionalModuleAddress[SubIndex] != 0xFF) {
+
+          if (FixedFitLocation != 0) {
+            Error (NULL, 0, 0, "No enough space for Option Modules!", NULL);
+            return NULL;
+          }
+
           //
           // No enough space - it might happen that it is occupied by AP wake vector.
           // Last chance - skip this and search again.
@@ -1771,8 +2190,8 @@ Returns:
           }
         }
       }
-      memcpy (OptionalModuleAddress, (VOID *) (UINTN) gFitTableContext.OptionalModule[Index].Address, gFitTableContext.OptionalModule[Index].Size);
-      free ((VOID *) (UINTN) gFitTableContext.OptionalModule[Index].Address);
+      memcpy (OptionalModuleAddress, gFitTableContext.OptionalModule[Index].Buffer, gFitTableContext.OptionalModule[Index].Size);
+      free (gFitTableContext.OptionalModule[Index].Buffer);
       gFitTableContext.OptionalModule[Index].Address = MEMORY_TO_FLASH (OptionalModuleAddress, FvBuffer, FvSize);
     }
     //
@@ -1818,8 +2237,11 @@ Returns:
   }
   printf ("Total FIT Entry number: 0x%x\n", gFitTableContext.FitEntryNumber);
   printf ("FitHeader version: 0x%04x\n", gFitTableContext.FitHeaderVersion);
-  if (gFitTableContext.StartupAcm.Address != 0) {
-    printf ("StartupAcm - (0x%08x, 0x%08x, 0x%04x)\n", gFitTableContext.StartupAcm.Address, gFitTableContext.StartupAcm.Size, gFitTableContext.StartupAcmVersion);
+  for (Index = 0; Index < gFitTableContext.StartupAcmNumber; Index++) {
+    printf ("StartupAcm[%d] - (0x%08x, 0x%08x, 0x%04x)\n", Index, gFitTableContext.StartupAcm[Index].Address, gFitTableContext.StartupAcm[Index].Size, gFitTableContext.StartupAcmVersion[Index]);
+  }
+  if (gFitTableContext.DiagnstAcm.Address != 0) {
+    printf ("DiagnosticAcm - (0x%08x, 0x%08x, 0x%04x)\n", gFitTableContext.DiagnstAcm.Address, gFitTableContext.DiagnstAcm.Size, gFitTableContext.DiagnstAcmVersion);
   }
   for (Index = 0; Index < gFitTableContext.BiosModuleNumber; Index++) {
     printf ("BiosModule[%d] - (0x%08x, 0x%08x, 0x%04x)\n", Index, gFitTableContext.BiosModule[Index].Address, gFitTableContext.BiosModule[Index].Size, gFitTableContext.BiosModuleVersion);
@@ -1841,10 +2263,28 @@ Returns:
   return ;
 }
 
+CHAR8 *mFitCseSubTypeStr[] = {
+  "CSE_RSVD   ",
+  "CSE_K_HASH1",
+  "CSE_M_HASH ",
+  "CSE_BPOLICY",
+  "CSE_OTHR_BP",
+  "CSE_OEMSMIP",
+  "CSE_MRCDATA",
+  "CSE_IBBL_H ",
+  "CSE_IBB_H  ",
+  "CSE_OEM_ID ",
+  "CSEOEMSKUID",
+  "CSE_BD_IND ",
+  "CSE_FPM    ",
+  "CSE_ACMM   "
+};
+
 CHAR8 *mFitTypeStr[] = {
   "           ",
   "MICROCODE  ",
   "STARTUP_ACM",
+  "DIAGNST_ACM",
   "           ",
   "           ",
   "           ",
@@ -1888,6 +2328,14 @@ Returns:
     return mFitSignatureInHeader;
   }
   if (FitEntry->Type < sizeof (mFitTypeStr)/sizeof(mFitTypeStr[0])) {
+    if (FitEntry->Type == FIT_TABLE_TYPE_CSE_SECURE_BOOT) {
+      //
+      // "Reserved" field is used to distinguish CSE Secure Boot entries (see FIT spec revision 1.2)
+      //
+      if (FitEntry->Rsvd < sizeof (mFitCseSubTypeStr)/sizeof(mFitCseSubTypeStr[0])) {
+        return mFitCseSubTypeStr[FitEntry->Rsvd];
+      }
+    }
     return mFitTypeStr[FitEntry->Type];
   } else {
     return "           ";
@@ -2134,7 +2582,16 @@ Returns:
   DumpHex (Buffer, Acm->KeySize * 4);
   printf ("\n");
   Buffer += Acm->KeySize * 4;
-
+  //
+  // To simplify the tool and making it independent of ACM header change,
+  // the rest of ACM parsing  will be skipped starting ACM_HEADER_VERSION4
+  //
+  if((Acm->HeaderVersion != ACM_HEADER_VERSION_3) && (Acm->HeaderVersion != ACM_HEADER_VERSION_0)){
+     printf (
+        "*****************************************************************************\n\n"
+        );
+    return;
+  }
   if (Acm->HeaderVersion == ACM_HEADER_VERSION_3) {
     printf ("  RSASig                     - \n");
     DumpHex (Buffer, ACM_PKCS_1_5_RSA_SIGNATURE_SHA384_SIZE); // PKCS #1.5 RSA Signature
@@ -2258,6 +2715,14 @@ Returns:
     return FALSE;
   }
 
+  //
+  // To simplify the tool and making it independent of ACM header change,
+  // the following check will be skipped starting ACM_HEADER_VERSION3
+  //
+  if((Acm->HeaderVersion != ACM_HEADER_VERSION_3) && (Acm->HeaderVersion != ACM_HEADER_VERSION_0)){
+    printf ("ACM header Version 4 or higher, bypassing other checks!\n");
+    return TRUE;
+  }
   Buffer = (UINT8 *)(Acm + 1);
   Buffer += Acm->KeySize * 4;
   if (Acm->HeaderVersion == ACM_HEADER_VERSION_3) {
@@ -2356,11 +2821,14 @@ Returns:
 {
   FIRMWARE_INTERFACE_TABLE_ENTRY *FitEntry;
   UINT32                          FitIndex;
+  UINT32                          FitEntrySizeValue;
   UINT32                          Index;
   UINT8                           Checksum;
   UINTN                           SubIndex;
   FIT_TABLE_CONTEXT_ENTRY         TempContextEntry;
   FIRMWARE_INTERFACE_TABLE_ENTRY  TempTableEntry;
+  PROCESSOR_ID                    FMS;
+  PROCESSOR_ID                    FMSMask;
 
   //
   // 1. FitPointer
@@ -2376,48 +2844,90 @@ Returns:
   //
   // 2. FitHeader
   //
-  FitEntry[FitIndex].Address             = *(UINT64 *)"_FIT_   ";
-  *(UINT32 *)&FitEntry[FitIndex].Size[0] = gFitTableContext.FitEntryNumber;
-  FitEntry[FitIndex].Version             = (UINT16)gFitTableContext.FitHeaderVersion;
-  FitEntry[FitIndex].Type                = FIT_TABLE_TYPE_HEADER;
-  FitEntry[FitIndex].C_V                 = 1;
+  FitEntrySizeValue           = gFitTableContext.FitEntryNumber;
+  FitEntry[FitIndex].Address  = *(UINT64 *)"_FIT_   ";
+  FitEntry[FitIndex].Size[0]  = (UINT8)FitEntrySizeValue;
+  FitEntry[FitIndex].Size[1]  = (UINT8)(FitEntrySizeValue >> 8);
+  FitEntry[FitIndex].Size[2]  = (UINT8)(FitEntrySizeValue >> 16);
+  FitEntry[FitIndex].Rsvd     = 0;
+  FitEntry[FitIndex].Version  = (UINT16)gFitTableContext.FitHeaderVersion;
+  FitEntry[FitIndex].Type     = FIT_TABLE_TYPE_HEADER;
+  FitEntry[FitIndex].C_V      = 1;
   //
   // Checksum will be updated later...
   //
-  FitEntry[FitIndex].Checksum            = 0;
+  FitEntry[FitIndex].Checksum = 0;
 
   //
   // 3. Microcode
   //
   FitIndex++;
   for (Index = 0; Index < gFitTableContext.MicrocodeNumber; Index++) {
-    FitEntry[FitIndex].Address             = gFitTableContext.Microcode[Index].Address;
-    *(UINT32 *)&FitEntry[FitIndex].Size[0] = 0; //gFitTableContext.Microcode[Index].Size / 16;
-    FitEntry[FitIndex].Version             = (UINT16)gFitTableContext.MicrocodeVersion;
-    FitEntry[FitIndex].Type                = FIT_TABLE_TYPE_MICROCODE;
-    FitEntry[FitIndex].C_V                 = 0;
-    FitEntry[FitIndex].Checksum            = 0;
+    FitEntrySizeValue           = 0; // gFitTableContext.Microcode[Index].Size / 16
+    FitEntry[FitIndex].Address  = gFitTableContext.Microcode[Index].Address;
+    FitEntry[FitIndex].Size[0]  = (UINT8)FitEntrySizeValue;
+    FitEntry[FitIndex].Size[1]  = (UINT8)(FitEntrySizeValue >> 8);
+    FitEntry[FitIndex].Size[2]  = (UINT8)(FitEntrySizeValue >> 16);
+    FitEntry[FitIndex].Rsvd     = 0;
+    FitEntry[FitIndex].Version  = (UINT16)gFitTableContext.MicrocodeVersion;
+    FitEntry[FitIndex].Type     = FIT_TABLE_TYPE_MICROCODE;
+    FitEntry[FitIndex].C_V      = 0;
+    FitEntry[FitIndex].Checksum = 0;
     FitIndex++;
   }
 
   //
   // 4. StartupAcm
   //
-  if (gFitTableContext.StartupAcm.Address != 0) {
-    FitEntry[FitIndex].Address             = gFitTableContext.StartupAcm.Address;
-    *(UINT32 *)&FitEntry[FitIndex].Size[0] = 0; //gFitTableContext.StartupAcm.Size / 16;
-    FitEntry[FitIndex].Version             = (UINT16)gFitTableContext.StartupAcmVersion;
-    FitEntry[FitIndex].Type                = FIT_TABLE_TYPE_STARTUP_ACM;
-    FitEntry[FitIndex].C_V                 = 0;
-    FitEntry[FitIndex].Checksum            = 0;
+  for (Index = 0; Index < gFitTableContext.StartupAcmNumber; Index++) {
+    if (gFitTableContext.StartupAcmVersion[Index] == STARTUP_ACM_FIT_ENTRY_200_VERSION) {
+      FMS.Uint32 = gFitTableContext.StartupAcm[Index].FMS;
+      FMSMask.Uint32 = gFitTableContext.StartupAcm[Index].FMSMask;
+      FitEntry[FitIndex].Address  = gFitTableContext.StartupAcm[Index].Address;
+      FitEntry[FitIndex].Size[0]  = NIBBLES_TO_BYTE (FMS.Bits.Family, FMS.Bits.Model);
+      FitEntry[FitIndex].Size[1]  = NIBBLES_TO_BYTE (FMS.Bits.ExtendedModel, FMS.Bits.Type);
+      FitEntry[FitIndex].Size[2]  = NIBBLES_TO_BYTE (FMSMask.Bits.Family, FMSMask.Bits.Model);
+      FitEntry[FitIndex].Rsvd     = NIBBLES_TO_BYTE (FMSMask.Bits.ExtendedModel, FMSMask.Bits.Type);
+      FitEntry[FitIndex].Version  = (UINT16)gFitTableContext.StartupAcmVersion[Index];
+      FitEntry[FitIndex].Type     = FIT_TABLE_TYPE_STARTUP_ACM;
+      FitEntry[FitIndex].C_V      = 0;
+      FitEntry[FitIndex].Checksum = NIBBLES_TO_BYTE (FMSMask.Bits.ExtendedFamily, FMS.Bits.ExtendedFamily);
+    } else {
+      FitEntrySizeValue           = 0; // gFitTableContext.StartupAcm.Size / 16
+      FitEntry[FitIndex].Address  = gFitTableContext.StartupAcm[Index].Address;
+      FitEntry[FitIndex].Size[0]  = (UINT8)FitEntrySizeValue;
+      FitEntry[FitIndex].Size[1]  = (UINT8)(FitEntrySizeValue >> 8);
+      FitEntry[FitIndex].Size[2]  = (UINT8)(FitEntrySizeValue >> 16);
+      FitEntry[FitIndex].Rsvd     = 0;
+      FitEntry[FitIndex].Version  = (UINT16)gFitTableContext.StartupAcmVersion[Index];
+      FitEntry[FitIndex].Type     = FIT_TABLE_TYPE_STARTUP_ACM;
+      FitEntry[FitIndex].C_V      = 0;
+      FitEntry[FitIndex].Checksum = 0;
+    }
     FitIndex++;
   }
 
   //
+  // 4.5. DiagnosticAcm
+  //
+  if (gFitTableContext.DiagnstAcm.Address != 0) {
+    FitEntrySizeValue           = 0; // gFitTableContext.DiagnstAcmVersion.Size / 16
+    FitEntry[FitIndex].Address  = gFitTableContext.DiagnstAcm.Address;
+    FitEntry[FitIndex].Size[0]  = (UINT8)FitEntrySizeValue;
+    FitEntry[FitIndex].Size[1]  = (UINT8)(FitEntrySizeValue >> 8);
+    FitEntry[FitIndex].Size[2]  = (UINT8)(FitEntrySizeValue >> 16);
+    FitEntry[FitIndex].Rsvd     = 0;
+    FitEntry[FitIndex].Version  = (UINT16)gFitTableContext.DiagnstAcmVersion;
+    FitEntry[FitIndex].Type     = FIT_TABLE_TYPE_DIAGNST_ACM;
+    FitEntry[FitIndex].C_V      = 0;
+    FitEntry[FitIndex].Checksum = 0;
+    FitIndex++;
+  }
+  //
   // 5. BiosModule
   //
   //
-  // BiosModule segments order needs to be put from low addresss to high for Btg requirement
+  // BiosModule segments order needs to be put from low address to high for Btg requirement
   //
   if (gFitTableContext.BiosModuleNumber > 1) {
     for (Index = 0; Index < (UINTN)gFitTableContext.BiosModuleNumber - 1; Index++){
@@ -2431,12 +2941,16 @@ Returns:
     }
   }
   for (Index = 0; Index < gFitTableContext.BiosModuleNumber; Index++) {
-    FitEntry[FitIndex].Address             = gFitTableContext.BiosModule[Index].Address;
-    *(UINT32 *)&FitEntry[FitIndex].Size[0] = gFitTableContext.BiosModule[Index].Size / 16;
-    FitEntry[FitIndex].Version             = (UINT16)gFitTableContext.BiosModuleVersion;
-    FitEntry[FitIndex].Type                = FIT_TABLE_TYPE_BIOS_MODULE;
-    FitEntry[FitIndex].C_V                 = 0;
-    FitEntry[FitIndex].Checksum            = 0;
+    FitEntrySizeValue           = gFitTableContext.BiosModule[Index].Size / 16;
+    FitEntry[FitIndex].Address  = gFitTableContext.BiosModule[Index].Address;
+    FitEntry[FitIndex].Size[0]  = (UINT8)FitEntrySizeValue;
+    FitEntry[FitIndex].Size[1]  = (UINT8)(FitEntrySizeValue >> 8);
+    FitEntry[FitIndex].Size[2]  = (UINT8)(FitEntrySizeValue >> 16);
+    FitEntry[FitIndex].Rsvd     = 0;
+    FitEntry[FitIndex].Version  = (UINT16)gFitTableContext.BiosModuleVersion;
+    FitEntry[FitIndex].Type     = FIT_TABLE_TYPE_BIOS_MODULE;
+    FitEntry[FitIndex].C_V      = 0;
+    FitEntry[FitIndex].Checksum = 0;
     FitIndex++;
   }
 
@@ -2444,12 +2958,18 @@ Returns:
   // 6. Optional module
   //
   for (Index = 0; Index < gFitTableContext.OptionalModuleNumber; Index++) {
-    FitEntry[FitIndex].Address             = gFitTableContext.OptionalModule[Index].Address;
-    *(UINT32 *)&FitEntry[FitIndex].Size[0] = gFitTableContext.OptionalModule[Index].Size;
-    FitEntry[FitIndex].Version             = (UINT16)gFitTableContext.OptionalModule[Index].Version;
-    FitEntry[FitIndex].Type                = (UINT8)gFitTableContext.OptionalModule[Index].Type;
-    FitEntry[FitIndex].C_V                 = 0;
-    FitEntry[FitIndex].Checksum            = 0;
+    FitEntrySizeValue           = gFitTableContext.OptionalModule[Index].Size;
+    FitEntry[FitIndex].Address  = gFitTableContext.OptionalModule[Index].Address;
+    FitEntry[FitIndex].Size[0]  = (UINT8)FitEntrySizeValue;
+    FitEntry[FitIndex].Size[1]  = (UINT8)(FitEntrySizeValue >> 8);
+    FitEntry[FitIndex].Size[2]  = (UINT8)(FitEntrySizeValue >> 16);
+    FitEntry[FitIndex].Version  = (UINT16)gFitTableContext.OptionalModule[Index].Version;
+    FitEntry[FitIndex].Type     = (UINT8)gFitTableContext.OptionalModule[Index].Type;
+    if (FitEntry[FitIndex].Type == FIT_TABLE_TYPE_CSE_SECURE_BOOT) {
+      FitEntry[FitIndex].Rsvd   = (UINT8)gFitTableContext.OptionalModule[Index].SubType;
+    }
+    FitEntry[FitIndex].C_V      = 0;
+    FitEntry[FitIndex].Checksum = 0;
     FitIndex++;
   }
 
@@ -2457,12 +2977,16 @@ Returns:
   // 7. Port module
   //
   for (Index = 0; Index < gFitTableContext.PortModuleNumber; Index++) {
-    FitEntry[FitIndex].Address             = gFitTableContext.PortModule[Index].Address + ((UINT64)gFitTableContext.PortModule[Index].Size << 32);
-    *(UINT32 *)&FitEntry[FitIndex].Size[0] = 0;
-    FitEntry[FitIndex].Version             = (UINT16)gFitTableContext.PortModule[Index].Version;
-    FitEntry[FitIndex].Type                = (UINT8)gFitTableContext.PortModule[Index].Type;
-    FitEntry[FitIndex].C_V                 = 0;
-    FitEntry[FitIndex].Checksum            = 0;
+    FitEntrySizeValue           = 0;
+    FitEntry[FitIndex].Address  = gFitTableContext.PortModule[Index].Address + ((UINT64)gFitTableContext.PortModule[Index].Size << 32);
+    FitEntry[FitIndex].Size[0]  = (UINT8)FitEntrySizeValue;
+    FitEntry[FitIndex].Size[1]  = (UINT8)(FitEntrySizeValue >> 8);
+    FitEntry[FitIndex].Size[2]  = (UINT8)(FitEntrySizeValue >> 16);
+    FitEntry[FitIndex].Rsvd     = 0;
+    FitEntry[FitIndex].Version  = (UINT16)gFitTableContext.PortModule[Index].Version;
+    FitEntry[FitIndex].Type     = (UINT8)gFitTableContext.PortModule[Index].Type;
+    FitEntry[FitIndex].C_V      = 0;
+    FitEntry[FitIndex].Checksum = 0;
     FitIndex++;
   }
 
@@ -2582,6 +3106,15 @@ Returns:
   FILE                        *FpOut;
 
   //
+  //Check the File Path
+  //
+  if (!CheckPath(FileName)) {
+
+    Error (NULL, 0, 0, "File path is invalid!", NULL);
+    return STATUS_ERROR;
+  }
+
+  //
   // Open the output FvRecovery.fv file
   //
   if ((FpOut = fopen (FileName, "w+b")) == NULL) {
@@ -2671,6 +3204,69 @@ Returns:
   return FvRecoveryFileSize;
 }
 
+void
+GetFMSFromFitEntry (
+  IN      FIRMWARE_INTERFACE_TABLE_ENTRY   FitEntry,
+  IN OUT  PROCESSOR_ID                     *FMS,
+  IN OUT  PROCESSOR_ID                     *FMSMask
+  )
+/*++
+
+Routine Description:
+
+  Get FMS information from FIT Entry.
+
+  Note: Since FIT entry not record all the processor ID information.
+        The value would not the same as the real value.
+
+  +----------+-----------------------+-----------------------+-----------------------+-----------------------+
+  |   Byte   |          15           |          14           |         13:12         |          11           |
+  +----------+-----------------------+-----------------------+-----------------------+-----------------------+
+  |Bit Fields|   [7:4]   |   [3:0]   |   [7:7]   |   [6:0]   |   [7:4]   |   [3:0]   |   [7:4]   |   [3:0]   |
+  +----------+-----------------------+-----------------------+-----------------------+-----------------------+
+  | Ver. 100 |       Checksum        |    C_V    |    Type   |        Version        |        Reserved       |
+  +----------+-----------------------+-----------------------+-----------------------+-----------------------+
+  | Ver. 200 |  FMSMask  |    FMS    |    C_V    |    Type   |        Version        |  FMSMask  |  FMSMask  |
+  |          | ExtFamily | ExtFamily |           |           |                       |  ExtModel |    Type   |
+  +----------+-----------------------+-----------------------+-----------------------+-----------------------+
+
+  +----------+-----------------------+-----------------------+-----------------------+-----------------------+
+  |   Byte   |          10           |           9           |           8           |          7:0          |
+  +----------+-----------------------+-----------------------+-----------------------+-----------------------+
+  |Bit Fields|   [7:4]   |   [3:0]   |   [7:4]   |   [3:0]   |   [7:4]   |   [3:0]   |   [7:4]   |   [3:0]   |
+  +----------+-----------------------+-----------------------+-----------------------+-----------------------+
+  | Ver. 100 |        Size[2]        |        Size[1]        |        Size[0]        |        Address        |
+  +----------+-----------------------+-----------------------+-----------------------+-----------------------+
+  | Ver. 200 |  FMSMask  |  FMSMask  |    FMS    |    FMS    |    FMS    |    FMS    |        Address        |
+  |          |   Family  |   Model   |  ExtModel |    Type   |   Family  |   Model   |                       |
+  +----------+-----------------------+-----------------------+-----------------------+-----------------------+
+
+
+Arguments:
+
+  FitEntry - FIT entry information.
+  FMS      - Processor ID information.
+  FMSMask  - Processor ID mask information.
+
+Returns:
+  None
+
+--*/
+{
+
+  FMS->Bits.Family         = (FitEntry.Size[0]  & 0xF0) >> 4;
+  FMS->Bits.Model          = (FitEntry.Size[0]  & 0x0F);
+  FMS->Bits.ExtendedModel  = (FitEntry.Size[1]  & 0xF0) >> 4;
+  FMS->Bits.Type           = (FitEntry.Size[1]  & 0x0F);
+  FMS->Bits.ExtendedFamily = (FitEntry.Checksum & 0x0F);
+
+  FMSMask->Bits.Family         = (FitEntry.Size[2]  & 0xF0) >> 4;
+  FMSMask->Bits.Model          = (FitEntry.Size[2]  & 0x0F);
+  FMSMask->Bits.ExtendedModel  = (FitEntry.Rsvd     & 0xF0) >> 4;
+  FMSMask->Bits.Type           = (FitEntry.Rsvd     & 0x0F);
+  FMSMask->Bits.ExtendedFamily = (FitEntry.Checksum & 0xF0) >> 4;
+}
+
 UINT32
 GetFitEntryInfo (
   IN UINT8     *FvBuffer,
@@ -2680,7 +3276,7 @@ GetFitEntryInfo (
 
 Routine Description:
 
-  Fill the FIT table information to Fvrecovery
+  Get the FIT table information from Fvrecovery
 
 Arguments:
 
@@ -2694,8 +3290,14 @@ Returns:
 --*/
 {
   FIRMWARE_INTERFACE_TABLE_ENTRY *FitEntry;
+  UINT32                          FitEntrySizeValue;
   UINT32                          FitIndex;
   UINT32                          FitTableOffset;
+  PROCESSOR_ID                    FMS;
+  PROCESSOR_ID                    FMSMask;
+
+  FMS.Uint32     = 0;
+  FMSMask.Uint32 = 0;
 
   //
   // 1. FitPointer
@@ -2719,7 +3321,8 @@ Returns:
   if (FitEntry[FitIndex].Type != FIT_TABLE_TYPE_HEADER) {
     return 0;
   }
-  gFitTableContext.FitEntryNumber = *(UINT32 *)&FitEntry[FitIndex].Size[0];
+  FitEntrySizeValue = (((UINT32)FitEntry[FitIndex].Size[2]) << 16) + (((UINT32)FitEntry[FitIndex].Size[1]) << 8) + ((UINT32)FitEntry[FitIndex].Size[0]);
+  gFitTableContext.FitEntryNumber = FitEntrySizeValue;
   gFitTableContext.FitHeaderVersion = FitEntry[FitIndex].Version;
 
   //
@@ -2727,6 +3330,7 @@ Returns:
   //
   FitIndex++;
   for (; FitIndex < gFitTableContext.FitEntryNumber; FitIndex++) {
+    FitEntrySizeValue = (((UINT32)FitEntry[FitIndex].Size[2]) << 16) + (((UINT32)FitEntry[FitIndex].Size[1]) << 8) + ((UINT32)FitEntry[FitIndex].Size[0]);
     switch (FitEntry[FitIndex].Type) {
     case FIT_TABLE_TYPE_MICROCODE:
       gFitTableContext.Microcode[gFitTableContext.MicrocodeNumber].Address = (UINT32)FitEntry[FitIndex].Address;
@@ -2734,12 +3338,20 @@ Returns:
       gFitTableContext.MicrocodeNumber ++;
       break;
     case FIT_TABLE_TYPE_STARTUP_ACM:
-      gFitTableContext.StartupAcm.Address = (UINT32)FitEntry[FitIndex].Address;
-      gFitTableContext.StartupAcmVersion  = FitEntry[FitIndex].Version;
+      gFitTableContext.StartupAcm[gFitTableContext.StartupAcmNumber].Address = (UINT32)FitEntry[FitIndex].Address;
+      gFitTableContext.StartupAcm[gFitTableContext.StartupAcmNumber].Size    = FitEntrySizeValue;
+      gFitTableContext.StartupAcm[gFitTableContext.StartupAcmNumber].Type    = FitEntry[FitIndex].Type;
+      gFitTableContext.StartupAcmVersion[gFitTableContext.StartupAcmNumber]  = FitEntry[FitIndex].Version;
+      if (gFitTableContext.StartupAcmVersion[gFitTableContext.StartupAcmNumber] == STARTUP_ACM_FIT_ENTRY_200_VERSION) {
+        GetFMSFromFitEntry (FitEntry[FitIndex], &FMS, &FMSMask);
+        gFitTableContext.StartupAcm[gFitTableContext.StartupAcmNumber].FMS     = FMS.Uint32;
+        gFitTableContext.StartupAcm[gFitTableContext.StartupAcmNumber].FMSMask = FMSMask.Uint32;
+      }
+      gFitTableContext.StartupAcmNumber++;
       break;
     case FIT_TABLE_TYPE_BIOS_MODULE:
       gFitTableContext.BiosModule[gFitTableContext.BiosModuleNumber].Address = (UINT32)FitEntry[FitIndex].Address;
-      gFitTableContext.BiosModule[gFitTableContext.BiosModuleNumber].Size    = *(UINT32 *)&FitEntry[FitIndex].Size[0] * 16;
+      gFitTableContext.BiosModule[gFitTableContext.BiosModuleNumber].Size    = FitEntrySizeValue * 16;
       gFitTableContext.BiosModuleVersion                                     = FitEntry[FitIndex].Version;
       gFitTableContext.BiosModuleNumber ++;
       break;
@@ -2756,7 +3368,7 @@ Returns:
       // Not Port Configure, pass through
     default: // Others
       gFitTableContext.OptionalModule[gFitTableContext.OptionalModuleNumber].Address = (UINT32)FitEntry[FitIndex].Address;
-      gFitTableContext.OptionalModule[gFitTableContext.OptionalModuleNumber].Size    = *(UINT32 *)&FitEntry[FitIndex].Size[0];
+      gFitTableContext.OptionalModule[gFitTableContext.OptionalModuleNumber].Size    = FitEntrySizeValue;
       gFitTableContext.OptionalModule[gFitTableContext.OptionalModuleNumber].Version = FitEntry[FitIndex].Version;
       gFitTableContext.OptionalModule[gFitTableContext.OptionalModuleNumber].Type    = FitEntry[FitIndex].Type;
       gFitTableContext.OptionalModuleNumber ++;
@@ -2802,7 +3414,10 @@ Returns:
   UINT32                      FdFileSize;
 
   UINT8                       *AcmBuffer;
+  INTN                        Index;
+  UINT32                      FixedFitLocation;
 
+  FileBufferRaw = NULL;
   //
   // Step 0: Check FV or FD
   //
@@ -2861,17 +3476,27 @@ Returns:
     // Add 1 more FitEntry as place holder, because we need exclude FIT table itself
     //
     FitEntryNumber++;
-
-    //
-    // Step 3: Get enough space in FvRecovery.fv
-    //
-    FitTableOffset = GetFreeSpaceFromFv (FileBuffer, FvRecoveryFileSize, FitEntryNumber);
-    if (FitTableOffset == NULL) {
-      return STATUS_ERROR;
-    }
     FitTableSize = FitEntryNumber * sizeof(FIRMWARE_INTERFACE_TABLE_ENTRY);
     FitTableSize += FIT_ALIGNMENT;
     FitTableSize &= ~FIT_ALIGNMENT;
+
+    //
+    // Step 3: Get enough space for FIT
+    //
+    FixedFitLocation = GetFixedFitLocation (argc, argv);
+    if (FixedFitLocation != 0 &&
+      (FixedFitLocation < TOP_FLASH_ADDRESS - FdFileSize || FixedFitLocation + FitTableSize > TOP_FLASH_ADDRESS)) {
+      //
+      // FixedFitLocation is out of the input FD region, still find space from FvRecovery
+      //
+      FixedFitLocation = 0;
+      printf ("The fixed FIT location is not in valid flash region, find space from FvRecovery ...\n");
+    }
+
+    FitTableOffset = GetFreeSpaceForFit (FileBuffer, FvRecoveryFileSize, FitTableSize, FixedFitLocation);
+    if (FitTableOffset == NULL) {
+      return STATUS_ERROR;
+    }
 
     CheckOverlap (
       MEMORY_TO_FLASH (FitTableOffset, FdFileBuffer, FdFileSize),
@@ -2881,22 +3506,23 @@ Returns:
     //
     // Get ACM buffer
     //
-    if (gFitTableContext.StartupAcm.Address != 0) {
-      AcmBuffer = FLASH_TO_MEMORY(gFitTableContext.StartupAcm.Address, FdFileBuffer, FdFileSize);
-      if ((AcmBuffer < FdFileBuffer) || (AcmBuffer + gFitTableContext.StartupAcm.Size > FdFileBuffer + FdFileSize)) {
-        printf ("ACM out of range - can not validate it\n");
-        AcmBuffer = NULL;
-      }
+    for (Index = 0; Index < (INTN)gFitTableContext.StartupAcmNumber; Index ++) {
+      if (gFitTableContext.StartupAcm[Index].Address != 0) {
+        AcmBuffer = FLASH_TO_MEMORY(gFitTableContext.StartupAcm[Index].Address, FdFileBuffer, FdFileSize);
+        if ((AcmBuffer < FdFileBuffer) || (AcmBuffer + gFitTableContext.StartupAcm[Index].Size > FdFileBuffer + FdFileSize)) {
+          printf ("ACM out of range - can not validate it\n");
+          AcmBuffer = NULL;
+        }
 
-      if (AcmBuffer != NULL) {
-        if (CheckAcm ((ACM_FORMAT *)AcmBuffer, gFitTableContext.StartupAcm.Size)) {
-          DumpAcm ((ACM_FORMAT *)AcmBuffer);
-        } else {
-          Status = STATUS_ERROR;
-          goto exitFunc;
+        if (AcmBuffer != NULL) {
+          if (CheckAcm ((ACM_FORMAT *)AcmBuffer, gFitTableContext.StartupAcm[Index].Size)) {
+            DumpAcm ((ACM_FORMAT *)AcmBuffer);
+          } else {
+            Status = STATUS_ERROR;
+            goto exitFunc;
+          }
         }
       }
-
     }
 
     //
@@ -3134,4 +3760,3 @@ Returns:
 
   return u;
 }
-

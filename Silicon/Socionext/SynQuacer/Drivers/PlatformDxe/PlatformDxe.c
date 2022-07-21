@@ -11,6 +11,18 @@
 UINT64                            mHiiSettingsVal;
 SYNQUACER_PLATFORM_VARSTORE_DATA  *mHiiSettings;
 
+#pragma pack (1)
+typedef struct {
+  MAC_ADDR_DEVICE_PATH                MacAddrDevicePath;
+  EFI_DEVICE_PATH_PROTOCOL            End;
+} NETSEC_DEVICE_PATH;
+
+typedef struct {
+  NETSEC_DEVICE_PATH                  DevicePath;
+  NON_DISCOVERABLE_DEVICE             NonDiscoverableDevice;
+} NETSEC_DEVICE;
+#pragma pack ()
+
 typedef struct {
   VENDOR_DEVICE_PATH              VendorDevicePath;
   EFI_DEVICE_PATH_PROTOCOL        End;
@@ -113,6 +125,39 @@ STATIC EFI_ACPI_ADDRESS_SPACE_DESCRIPTOR mI2c1Desc[] = {
   }
 };
 
+STATIC NETSEC_DEVICE  mNetsecDevice = {
+  {
+    {
+      {
+        MESSAGING_DEVICE_PATH,
+        MSG_MAC_ADDR_DP,
+        { sizeof (MAC_ADDR_DEVICE_PATH), 0 },
+      },
+      {},
+      NET_IFTYPE_ETHERNET,
+    },
+    {
+      END_DEVICE_PATH_TYPE,
+      END_ENTIRE_DEVICE_PATH_SUBTYPE,
+      { sizeof (EFI_DEVICE_PATH_PROTOCOL), 0 }
+    }
+  },
+  {
+    &gNetsecNonDiscoverableDeviceGuid,
+    NonDiscoverableDeviceDmaTypeCoherent,
+    NULL,
+    mNetsecDesc
+  }
+};
+
+STATIC EFI_ACPI_DESCRIPTION_HEADER      *mEmmcSsdt;
+STATIC UINTN                            mEmmcSsdtSize;
+
+STATIC EFI_ACPI_DESCRIPTION_HEADER      *mTos0Ssdt;
+STATIC UINTN                            mTos0SsdtSize;
+
+STATIC VOID                             *mAcpiTableEventRegistration;
+
 STATIC
 EFI_STATUS
 RegisterDevice (
@@ -130,7 +175,7 @@ RegisterDevice (
   }
 
   Device->Type = TypeGuid;
-  Device->DmaType = NonDiscoverableDeviceDmaTypeNonCoherent;
+  Device->DmaType = NonDiscoverableDeviceDmaTypeCoherent;
   Device->Resources = Desc;
 
   Status = gBS->InstallMultipleProtocolInterfaces (Handle,
@@ -256,6 +301,83 @@ EnableSettingsForm (
   return InstallHiiPages ();
 }
 
+STATIC
+VOID
+EFIAPI
+InstallAcpiTables (
+  IN EFI_EVENT                      Event,
+  IN VOID*                          Context
+  )
+{
+  UINTN                             TableKey;
+  EFI_STATUS                        Status;
+  EFI_ACPI_TABLE_PROTOCOL           *AcpiTable;
+
+  Status = gBS->LocateProtocol (&gEfiAcpiTableProtocolGuid, NULL,
+                  (VOID **)&AcpiTable);
+  if (EFI_ERROR (Status)) {
+    return;
+  }
+
+  if (mEmmcSsdtSize > 0) {
+    Status = AcpiTable->InstallAcpiTable (AcpiTable, mEmmcSsdt, mEmmcSsdtSize,
+                          &TableKey);
+    if (EFI_ERROR (Status)) {
+      DEBUG ((DEBUG_WARN, "%a: failed to install SSDT table for eMMC - %r\n",
+        __FUNCTION__, Status));
+    }
+  }
+
+  if (mTos0SsdtSize > 0) {
+    Status = AcpiTable->InstallAcpiTable (AcpiTable, mTos0Ssdt, mTos0SsdtSize,
+                          &TableKey);
+    if (EFI_ERROR (Status)) {
+      DEBUG ((DEBUG_WARN, "%a: failed to install SSDT table for OP-TEE - %r\n",
+        __FUNCTION__, Status));
+    }
+  }
+}
+
+STATIC
+VOID
+NetsecReadMacAddress (
+  OUT   EFI_MAC_ADDRESS     *MacAddress
+  )
+{
+  MacAddress->Addr[0] = MmioRead8 (FixedPcdGet32 (PcdNetsecEepromBase) + 3);
+  MacAddress->Addr[1] = MmioRead8 (FixedPcdGet32 (PcdNetsecEepromBase) + 2);
+  MacAddress->Addr[2] = MmioRead8 (FixedPcdGet32 (PcdNetsecEepromBase) + 1);
+  MacAddress->Addr[3] = MmioRead8 (FixedPcdGet32 (PcdNetsecEepromBase) + 0);
+  MacAddress->Addr[4] = MmioRead8 (FixedPcdGet32 (PcdNetsecEepromBase) + 7);
+  MacAddress->Addr[5] = MmioRead8 (FixedPcdGet32 (PcdNetsecEepromBase) + 6);
+}
+
+STATIC
+VOID
+EFIAPI
+RegisterDevices (
+  EFI_EVENT           Event,
+  VOID                *Context
+  )
+{
+  EFI_HANDLE                      Handle;
+  EFI_STATUS                      Status;
+
+  NetsecReadMacAddress (&mNetsecDevice.DevicePath.MacAddrDevicePath.MacAddress);
+
+  Handle = NULL;
+  Status = gBS->InstallMultipleProtocolInterfaces (&Handle,
+                  &gEfiDevicePathProtocolGuid,              &mNetsecDevice.DevicePath,
+                  &gEdkiiNonDiscoverableDeviceProtocolGuid, &mNetsecDevice.NonDiscoverableDevice,
+                  NULL);
+  ASSERT_EFI_ERROR (Status);
+
+  if (mHiiSettings->EnableEmmc == EMMC_ENABLED) {
+    Status = RegisterEmmc ();
+    ASSERT_EFI_ERROR (Status);
+  }
+}
+
 EFI_STATUS
 EFIAPI
 PlatformDxeEntryPoint (
@@ -267,6 +389,10 @@ PlatformDxeEntryPoint (
   VOID                            *Dtb;
   UINTN                           DtbSize;
   EFI_HANDLE                      Handle;
+  EFI_ACPI_DESCRIPTION_HEADER     *Ssdt;
+  UINTN                           SsdtSize;
+  UINTN                           Index;
+  EFI_EVENT                       EndOfDxeEvent;
 
   mHiiSettingsVal = PcdGet64 (PcdPlatformSettings);
   mHiiSettings = (SYNQUACER_PLATFORM_VARSTORE_DATA *)&mHiiSettingsVal;
@@ -295,11 +421,6 @@ PlatformDxeEntryPoint (
         __FUNCTION__));
     }
   }
-
-  Handle = NULL;
-  Status = RegisterDevice (&gNetsecNonDiscoverableDeviceGuid, mNetsecDesc,
-             &Handle);
-  ASSERT_EFI_ERROR (Status);
 
   Handle = NULL;
   Status = RegisterDevice (&gSynQuacerNonDiscoverableRuntimeI2cMasterGuid,
@@ -339,10 +460,48 @@ PlatformDxeEntryPoint (
   Status = EnableSettingsForm ();
   ASSERT_EFI_ERROR (Status);
 
-  if (mHiiSettings->EnableEmmc == EMMC_ENABLED) {
-    Status = RegisterEmmc ();
-    ASSERT_EFI_ERROR (Status);
+  if (mHiiSettings->AcpiPref == ACPIPREF_ACPI) {
+    //
+    // Load the SSDT tables from a raw section in this FFS file.
+    //
+    for (Index = 0;; Index++) {
+      Status = GetSectionFromFv (&gEfiCallerIdGuid, EFI_SECTION_RAW, Index,
+                 (VOID **)&Ssdt, &SsdtSize);
+      if (EFI_ERROR (Status)) {
+        break;
+      }
+
+      switch (Ssdt->OemTableId) {
+      case EMMC_TABLE_ID:
+        if (mHiiSettings->EnableEmmc != EMMC_ENABLED) {
+          break;
+        }
+        mEmmcSsdt = Ssdt;
+        mEmmcSsdtSize = SsdtSize;
+        break;
+
+      case TOS0_TABLE_ID:
+        if (!IsOpteePresent ()) {
+          break;
+        }
+        mTos0Ssdt = Ssdt;
+        mTos0SsdtSize = SsdtSize;
+        break;
+      }
+    }
+
+    if (mEmmcSsdtSize > 0 || mTos0SsdtSize > 0) {
+      //
+      // Register for the ACPI table protocol if we found any SSDTs to install
+      //
+      EfiCreateProtocolNotifyEvent (&gEfiAcpiTableProtocolGuid, TPL_CALLBACK,
+        InstallAcpiTables, NULL, &mAcpiTableEventRegistration);
+    }
   }
+
+  Status = gBS->CreateEventEx (EVT_NOTIFY_SIGNAL, TPL_NOTIFY, RegisterDevices,
+                  NULL, &gEfiEndOfDxeEventGroupGuid, &EndOfDxeEvent);
+  ASSERT_EFI_ERROR (Status);
 
   return EFI_SUCCESS;
 }

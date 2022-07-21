@@ -1,10 +1,10 @@
-### @file
+## @file
 #
-# Copyright (c) 2018, Intel Corporation. All rights reserved.<BR>
+# Copyright (c) 2018 - 2021, Intel Corporation. All rights reserved.<BR>
 #
 # SPDX-License-Identifier: BSD-2-Clause-Patent
 #
-###
+##
 
 [Defines]
   INF_VERSION                    = 0x00010005
@@ -21,10 +21,8 @@
 [Packages]
   MdePkg/MdePkg.dec
   MdeModulePkg/MdeModulePkg.dec
-  LewisburgPkg/PchRcPkg.dec
-  PurleySktPkg/SocketPkg.dec
-  PurleyRcPkg/RcPkg.dec
-  PurleyOpenBoardPkg/PlatPkg.dec
+  PurleyOpenBoardPkg/OpenBoardPkg.dec
+  PurleyRefreshSiliconPkg/SiPkg.dec
 
 [LibraryClasses]
   HobLib

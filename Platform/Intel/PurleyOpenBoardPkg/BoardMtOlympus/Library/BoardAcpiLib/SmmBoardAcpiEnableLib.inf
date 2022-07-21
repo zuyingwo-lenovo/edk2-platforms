@@ -1,10 +1,10 @@
-### @file
+## @file
 #
-# Copyright (c) 2018, Intel Corporation. All rights reserved.<BR>
+# Copyright (c) 2018 - 2021, Intel Corporation. All rights reserved.<BR>
 #
 # SPDX-License-Identifier: BSD-2-Clause-Patent
 #
-###
+##
 
 [Defines]
   INF_VERSION                    = 0x00010017
@@ -31,8 +31,8 @@
   MdePkg/MdePkg.dec
   MdeModulePkg/MdeModulePkg.dec
   MinPlatformPkg/MinPlatformPkg.dec
-  PurleyOpenBoardPkg/PlatPkg.dec
-  LewisburgPkg/PchRcPkg.dec
+  PurleyOpenBoardPkg/OpenBoardPkg.dec
+  PurleyRefreshSiliconPkg/SiPkg.dec
 
 [Sources]
   SmmMtOlympusAcpiEnableLib.c

@@ -1,7 +1,7 @@
 ### @file
 #  Component information file for AcpiPlatform module
 #
-# Copyright (c) 2017, Intel Corporation. All rights reserved.<BR>
+# Copyright (c) 2017 - 2021, Intel Corporation. All rights reserved.<BR>
 #
 # SPDX-License-Identifier: BSD-2-Clause-Patent
 #
@@ -38,6 +38,7 @@
   PcdLib
   UefiBootServicesTableLib
   UefiRuntimeServicesTableLib
+  UefiLib
   BaseMemoryLib
   HobLib
   AslUpdateLib
@@ -48,16 +49,23 @@
   gEfiFirmwareVolume2ProtocolGuid               ## CONSUMES
   gEfiMpServiceProtocolGuid                     ## CONSUMES
   gEfiGlobalNvsAreaProtocolGuid
+  gSaGlobalNvsAreaProtocolGuid                  ## CONSUMES
 
 [Pcd]
-  gBoardModuleTokenSpaceGuid.PcdAcpiGnvsAddress
+  gEfiMdePkgTokenSpaceGuid.PcdPciExpressBaseAddress
+  gMinPlatformPkgTokenSpaceGuid.PcdPciReservedMemBase
+  gMinPlatformPkgTokenSpaceGuid.PcdPciReservedMemLimit
+  gMinPlatformPkgTokenSpaceGuid.PcdPciReservedMemAbove4GBBase
+  gMinPlatformPkgTokenSpaceGuid.PcdPciReservedMemAbove4GBLimit
 
-  gBoardModuleTokenSpaceGuid.PcdAcpiSleepState
-  gBoardModuleTokenSpaceGuid.PcdAcpiHibernate
-  gBoardModuleTokenSpaceGuid.PcdLowPowerS0Idle
-  gBoardModuleTokenSpaceGuid.PcdDisableActiveTripPoints
-  gBoardModuleTokenSpaceGuid.PcdDisablePassiveTripPoints
-  gBoardModuleTokenSpaceGuid.PcdDisableCriticalTripPoints
+  gKabylakeOpenBoardPkgTokenSpaceGuid.PcdAcpiGnvsAddress
+
+  gKabylakeOpenBoardPkgTokenSpaceGuid.PcdAcpiSleepState
+  gKabylakeOpenBoardPkgTokenSpaceGuid.PcdAcpiHibernate
+  gKabylakeOpenBoardPkgTokenSpaceGuid.PcdLowPowerS0Idle
+  gKabylakeOpenBoardPkgTokenSpaceGuid.PcdDisableActiveTripPoints
+  gKabylakeOpenBoardPkgTokenSpaceGuid.PcdDisablePassiveTripPoints
+  gKabylakeOpenBoardPkgTokenSpaceGuid.PcdDisableCriticalTripPoints
 
 [Depex]
   gEfiAcpiTableProtocolGuid           AND
@@ -65,5 +73,3 @@
   gEfiPciRootBridgeIoProtocolGuid     AND
   gEfiVariableArchProtocolGuid        AND
   gEfiVariableWriteArchProtocolGuid
-
-

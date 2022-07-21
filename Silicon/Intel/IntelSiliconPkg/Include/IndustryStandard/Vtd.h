@@ -206,14 +206,17 @@ typedef union {
 #define   B_CAP_REG_RWBF       BIT4
 #define R_ECAP_REG       0x10
 #define R_GCMD_REG       0x18
+#define   B_GMCD_REG_QIE       BIT26
 #define   B_GMCD_REG_WBF       BIT27
 #define   B_GMCD_REG_SRTP      BIT30
 #define   B_GMCD_REG_TE        BIT31
 #define R_GSTS_REG       0x1C
+#define   B_GSTS_REG_QIES      BIT26
 #define   B_GSTS_REG_WBF       BIT27
 #define   B_GSTS_REG_RTPS      BIT30
 #define   B_GSTS_REG_TE        BIT31
 #define R_RTADDR_REG     0x20
+#define   V_RTADDR_REG_TTM_ADM    (BIT11|BIT10)
 #define R_CCMD_REG       0x28
 #define   B_CCMD_REG_CIRG_MASK    (BIT62|BIT61)
 #define   V_CCMD_REG_CIRG_GLOBAL  BIT61
@@ -221,6 +224,9 @@ typedef union {
 #define   V_CCMD_REG_CIRG_DEVICE  (BIT62|BIT61)
 #define   B_CCMD_REG_ICC          BIT63
 #define R_FSTS_REG       0x34
+#define   B_FSTS_REG_IQE          BIT4
+#define   B_FSTS_REG_ICE          BIT5
+#define   B_FSTS_REG_ITE          BIT6
 #define R_FECTL_REG      0x38
 #define R_FEDATA_REG     0x3C
 #define R_FEADDR_REG     0x40
@@ -246,6 +252,58 @@ typedef union {
 #define R_PMEN_LOW_LIMITE_REG     0x6C
 #define R_PMEN_HIGH_BASE_REG      0x70
 #define R_PMEN_HIGH_LIMITE_REG    0x78
+
+#define R_IQH_REG        0x80
+#define R_IQT_REG        0x88
+#define   DMAR_IQ_SHIFT  4   /* Invalidation queue head/tail shift */
+
+#define R_IQA_REG        0x90
+
+#define VTD_PAGE_SHIFT   (12)
+#define VTD_PAGE_SIZE    (1UL << VTD_PAGE_SHIFT)
+#define VTD_PAGE_MASK    (((UINT64)-1) << VTD_PAGE_SHIFT)
+
+#define QI_CC_TYPE       0x1
+#define QI_IOTLB_TYPE    0x2
+#define QI_DIOTLB_TYPE   0x3
+#define QI_IEC_TYPE      0x4
+#define QI_IWD_TYPE      0x5
+
+#define QI_CC_FM(fm)        (((UINT64)fm) << 48)
+#define QI_CC_SID(sid)      (((UINT64)sid) << 32)
+#define QI_CC_DID(did)      (((UINT64)did) << 16)
+#define QI_CC_GRAN(gran)    (((UINT64)gran) << 4)
+
+#define QI_IOTLB_DID(did)   (((UINT64)did) << 16)
+#define QI_IOTLB_DR(dr)     (((UINT64)dr) << 7)
+#define QI_IOTLB_DW(dw)     (((UINT64)dw) << 6)
+#define QI_IOTLB_GRAN(gran) (((UINT64)gran) << 4)
+#define QI_IOTLB_ADDR(addr) (((UINT64)addr) & VTD_PAGE_MASK)
+#define QI_IOTLB_IH(ih)     (((UINT64)ih) << 6)
+#define QI_IOTLB_AM(am)     (((UINT8)am))
+
+#define CAP_READ_DRAIN(c)   (((c) >> 55) & 1)
+#define CAP_WRITE_DRAIN(c)  (((c) >> 54) & 1)
+
+#define QI_IWD_STATUS_DATA(d)   (((UINT64)d) << 32)
+#define QI_IWD_STATUS_WRITE (((UINT64)1) << 5)
+
+//
+// This is the queued invalidate descriptor.
+//
+typedef struct {
+  UINT64 Low;
+  UINT64 High;
+} QI_DESC;
+
+typedef union {
+  struct {
+    UINT8         Minor:4;
+    UINT8         Major:4;
+    UINT32        Rsvd:24;
+  } Bits;
+  UINT32          Uint32;
+} VTD_VER_REG;
 
 typedef union {
   struct {
@@ -277,7 +335,10 @@ typedef union {
     UINT8         FL1GP:1; // First Level 1-GByte Page Support
     UINT8         Rsvd_57:2;
     UINT8         PI:1; // Posted Interrupts Support
-    UINT8         Rsvd_60:4;
+    UINT8         FL5LP:1; // First Level 5-level Paging Support
+    UINT8         Rsvd_61:1;
+    UINT8         ESIRTPS:1; // Enhanced Set Interrupt Remap Table Pointer Support
+    UINT8         ESRTPS:1; // Enhanced Set Root Table Pointer Support
   } Bits;
   UINT64     Uint64;
 } VTD_CAP_REG;
@@ -289,7 +350,7 @@ typedef union {
     UINT8         DT:1; // Device-TLB support
     UINT8         IR:1; // Interrupt Remapping support
     UINT8         EIM:1; // Extended Interrupt Mode
-    UINT8         Rsvd_5:1;
+    UINT8         DEP_5:1;
     UINT8         PT:1; // Pass Through
     UINT8         SC:1; // Snoop Control
 
@@ -297,11 +358,11 @@ typedef union {
     UINT16        Rsvd_18:2;
     UINT16        MHMV:4; // Maximum Handle Mask Value
 
-    UINT8         ECS:1; // Extended Context Support
+    UINT8         DEP_24:1;
     UINT8         MTS:1; // Memory Type Support
     UINT8         NEST:1; // Nested Translation Support
-    UINT8         DIS:1; // Deferred Invalidate Support
-    UINT8         PASID:1; // Process Address Space ID Support
+    UINT8         Rsvd_27:1;
+    UINT8         DEP_28:1;
     UINT8         PRS:1; // Page Request Support
     UINT8         ERS:1; // Execute Request Support
     UINT8         SRS:1; // Supervisor Request Support
@@ -310,7 +371,20 @@ typedef union {
     UINT32        NWFS:1; // No Write Flag Support
     UINT32        EAFS:1; // Extended Accessed Flag Support
     UINT32        PSS:5; // PASID Size Supported
-    UINT32        Rsvd_40:24;
+    UINT32        PASID:1; // Process Address Space ID Support
+    UINT32        DIT:1; // Device-TLB Invalidation Throttle
+    UINT32        PDS:1; // Page-request Drain Support
+    UINT32        SMTS:1; // Scalable Mode Translation Support
+    UINT32        VCS:1; // Virtual Command Support
+    UINT32        SLADS:1; // Second-Level Accessed Dirty Support
+    UINT32        SLTS:1; // Second-level Translation Support
+    UINT32        FLTS:1; // First-level Translation Support
+    UINT32        SMPWCS:1; // Scalable-Mode Page-walk Coherency Support
+    UINT32        RPS:1; // RID-PASID Support
+    UINT32        Rsvd_50:2;
+    UINT32        ADMS:1; // Abort DMA Mode Support
+    UINT32        RPRIVS:1; // RID_PRIV Support
+    UINT32        Rsvd_54:10;
   } Bits;
   UINT64     Uint64;
 } VTD_ECAP_REG;
@@ -322,7 +396,8 @@ typedef union {
     UINT32   FIHi:32;      // FaultInfo
 
     UINT32   SID:16;       // Source Identifier
-    UINT32   Rsvd_80:13;
+    UINT32   Rsvd_80:12;
+    UINT32   T2:1;         // Type bit2 (0: Write/Read, 1: Page/AtomicOp)
     UINT32   PRIV:1;       // Privilege Mode Requested
     UINT32   EXE:1;        // Execute Permission Requested
     UINT32   PP:1;         // PASID Present
@@ -330,7 +405,7 @@ typedef union {
     UINT32   FR:8;         // Fault Reason
     UINT32   PV:20;        // PASID Value
     UINT32   AT:2;         // Address Type
-    UINT32   T:1;          // Type (0: Write, 1: Read)
+    UINT32   T1:1;         // Type bit1 (0: Write/Page, 1: Read/AtomicOp)
     UINT32   F:1;          // Fault
   } Bits;
   UINT64     Uint64[2];

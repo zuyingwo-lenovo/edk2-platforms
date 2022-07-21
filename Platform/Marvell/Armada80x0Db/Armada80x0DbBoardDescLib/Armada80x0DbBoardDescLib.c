@@ -17,6 +17,17 @@
 #include <Library/UefiBootServicesTableLib.h>
 
 //
+// General purpose routine for per-board initalization
+//
+EFI_STATUS
+ArmadaBoardInit (
+  VOID
+  )
+{
+  return EFI_SUCCESS;
+}
+
+//
 // GPIO Expanders
 //
 STATIC MV_GPIO_EXPANDER mGpioExpanders[] = {
@@ -110,7 +121,7 @@ MV_BOARD_SDMMC_DESC mSdMmcDescTemplate[] = {
   { /* SD/MMC 0xF2780000 */
     0,     /* SOC will be filled by MvBoardDescDxe */
     0,     /* SdMmcDevCount will be filled by MvBoardDescDxe */
-    FALSE, /* Xenon1v8Enabled */
+    TRUE,  /* Xenon1v8Enabled */
     FALSE, /* Xenon8BitBusEnabled */
     FALSE, /* XenonSlowModeEnabled */
     0x19,  /* XenonTuningStepDivisor */

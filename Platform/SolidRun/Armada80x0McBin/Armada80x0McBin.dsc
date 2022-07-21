@@ -29,6 +29,7 @@
   DEFINE NETWORK_ISCSI_ENABLE           = FALSE
 
 !include Silicon/Marvell/Armada7k8k/Armada7k8k.dsc.inc
+!include MdePkg/MdeLibs.dsc.inc
 
 [Components.common]
   Silicon/Marvell/Armada7k8k/DeviceTree/Armada80x0McBin.inf
@@ -46,6 +47,11 @@
 #
 ################################################################################
 [PcdsFixedAtBuild.common]
+  #Platform description
+  gMarvellTokenSpaceGuid.PcdProductManufacturer|"SolidRun"
+  gMarvellTokenSpaceGuid.PcdProductPlatformName|"Armada 8040 MacchiatoBin"
+  gMarvellTokenSpaceGuid.PcdProductVersion|"Rev. 1.3"
+
   #MPP
   gMarvellTokenSpaceGuid.PcdMppChipCount|3
 

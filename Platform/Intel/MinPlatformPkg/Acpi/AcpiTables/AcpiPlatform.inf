@@ -1,7 +1,7 @@
 ### @file
 #  Component information file for AcpiPlatform module
 #
-# Copyright (c) 2017, Intel Corporation. All rights reserved.<BR>
+# Copyright (c) 2017 - 2021, Intel Corporation. All rights reserved.<BR>
 #
 # SPDX-License-Identifier: BSD-2-Clause-Patent
 #
@@ -42,11 +42,13 @@
   HobLib
   PciSegmentInfoLib
   AslUpdateLib
-  BoardAcpiTableLib
+  SortLib
+  LocalApicLib
 
 [Pcd]
   gEfiMdeModulePkgTokenSpaceGuid.PcdAcpiDefaultOemId
   gEfiMdeModulePkgTokenSpaceGuid.PcdAcpiDefaultOemTableId
+  gEfiMdeModulePkgTokenSpaceGuid.PcdAcpiDefaultOemRevision
   gEfiMdeModulePkgTokenSpaceGuid.PcdAcpiDefaultCreatorId
   gEfiMdeModulePkgTokenSpaceGuid.PcdAcpiDefaultCreatorRevision
 
@@ -60,12 +62,17 @@
   gMinPlatformPkgTokenSpaceGuid.PcdMaxCpuSocketCount
 
   gMinPlatformPkgTokenSpaceGuid.PcdFadtPreferredPmProfile
+  gMinPlatformPkgTokenSpaceGuid.PcdAcpiGpe1Base
   gMinPlatformPkgTokenSpaceGuid.PcdFadtIaPcBootArch
   gMinPlatformPkgTokenSpaceGuid.PcdFadtFlags
+  gMinPlatformPkgTokenSpaceGuid.PcdFadtDutyOffset
+  gMinPlatformPkgTokenSpaceGuid.PcdFadtDutyWidth
 
   gPcAtChipsetPkgTokenSpaceGuid.PcdHpetBaseAddress
   gEfiMdePkgTokenSpaceGuid.PcdPciExpressBaseAddress
   gMinPlatformPkgTokenSpaceGuid.PcdPciExpressRegionLength
+  gMinPlatformPkgTokenSpaceGuid.PcdFadtIaPcBootArch
+  gMinPlatformPkgTokenSpaceGuid.PcdFadtSmiCmd
   gMinPlatformPkgTokenSpaceGuid.PcdAcpiEnableSwSmi
   gMinPlatformPkgTokenSpaceGuid.PcdAcpiDisableSwSmi
   gMinPlatformPkgTokenSpaceGuid.PcdAcpiPm1AEventBlockAddress
@@ -75,7 +82,29 @@
   gMinPlatformPkgTokenSpaceGuid.PcdAcpiPm2ControlBlockAddress
   gMinPlatformPkgTokenSpaceGuid.PcdAcpiPmTimerBlockAddress
   gMinPlatformPkgTokenSpaceGuid.PcdAcpiGpe0BlockAddress
+  gMinPlatformPkgTokenSpaceGuid.PcdAcpiGpe0BlockLength
   gMinPlatformPkgTokenSpaceGuid.PcdAcpiGpe1BlockAddress
+  gMinPlatformPkgTokenSpaceGuid.PcdAcpiResetRegisterAccessSize
+  gMinPlatformPkgTokenSpaceGuid.PcdAcpiXPm1aEvtBlkAccessSize
+  gMinPlatformPkgTokenSpaceGuid.PcdAcpiXPm1bEvtBlkAccessSize
+  gMinPlatformPkgTokenSpaceGuid.PcdAcpiXPm1aCntBlkAccessSize
+  gMinPlatformPkgTokenSpaceGuid.PcdAcpiXPm1bCntBlkAccessSize
+  gMinPlatformPkgTokenSpaceGuid.PcdAcpiXPm2CntBlkAccessSize
+  gMinPlatformPkgTokenSpaceGuid.PcdAcpiXPmTmrBlkAccessSize
+  gMinPlatformPkgTokenSpaceGuid.PcdAcpiXGpe0BlkAccessSize
+  gMinPlatformPkgTokenSpaceGuid.PcdAcpiXGpe1BlkAccessSize
+  gMinPlatformPkgTokenSpaceGuid.PcdAcpiSleepControlRegisterAddressSpaceId
+  gMinPlatformPkgTokenSpaceGuid.PcdAcpiSleepControlRegisterBitWidth
+  gMinPlatformPkgTokenSpaceGuid.PcdAcpiSleepControlRegisterBitOffset
+  gMinPlatformPkgTokenSpaceGuid.PcdAcpiSleepControlRegisterAccessSize
+  gMinPlatformPkgTokenSpaceGuid.PcdAcpiSleepControlRegisterAddress
+  gMinPlatformPkgTokenSpaceGuid.PcdAcpiSleepStatusRegisterAddressSpaceId
+  gMinPlatformPkgTokenSpaceGuid.PcdAcpiSleepStatusRegisterBitWidth
+  gMinPlatformPkgTokenSpaceGuid.PcdAcpiSleepStatusRegisterBitOffset
+  gMinPlatformPkgTokenSpaceGuid.PcdAcpiSleepStatusRegisterAccessSize
+  gMinPlatformPkgTokenSpaceGuid.PcdAcpiSleepStatusRegisterAddress
+  gMinPlatformPkgTokenSpaceGuid.PcdAcpiS4BiosReq
+
 
   gMinPlatformPkgTokenSpaceGuid.PcdLocalApicAddress
   gMinPlatformPkgTokenSpaceGuid.PcdIoApicAddress

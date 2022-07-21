@@ -111,7 +111,7 @@ PlatInitPeiEntryPoint (
   IN       CONST EFI_PEI_SERVICES   **PeiServices
   )
 {
-  EFI_STATUS                  Status = EFI_SUCCESS;
+  EFI_STATUS                  Status;
   AMD_MEMORY_RANGE_DESCRIPTOR IscpMemDescriptor = {0};
   ISCP_FUSE_INFO              IscpFuseInfo = {0};
   ISCP_CPU_RESET_INFO         CpuResetInfo = {0};
@@ -124,7 +124,8 @@ PlatInitPeiEntryPoint (
   DEBUG ((EFI_D_ERROR, "PlatInit PEIM Loaded\n"));
 
   // CPUID
-  PcdSet32 (PcdSocCpuId, *CpuIdReg);
+  Status = PcdSet32S (PcdSocCpuId, *CpuIdReg);
+  ASSERT_EFI_ERROR (Status);
   DEBUG ((EFI_D_ERROR, "SocCpuId = 0x%X\n", PcdGet32 (PcdSocCpuId)));
 
   // Update core count based on PCD option
@@ -165,12 +166,12 @@ PlatInitPeiEntryPoint (
       ASSERT (CpuResetInfo.CoreStatus.Status != CPU_CORE_DISABLED);
       ASSERT (CpuResetInfo.CoreStatus.Status != CPU_CORE_UNDEFINED);
 
-      mAmdMpCoreInfoTable[Index].ClusterId = CpuResetInfo.CoreStatus.ClusterId;
-      mAmdMpCoreInfoTable[Index].CoreId = CpuResetInfo.CoreStatus.CoreId;
+      mAmdMpCoreInfoTable[Index].Mpidr = GET_MPID (CpuResetInfo.CoreStatus.ClusterId,
+		                           CpuResetInfo.CoreStatus.CoreId);
 
       DEBUG ((EFI_D_ERROR, "Core[%d]: ClusterId = %d   CoreId = %d\n",
-        Index, mAmdMpCoreInfoTable[Index].ClusterId,
-        mAmdMpCoreInfoTable[Index].CoreId));
+        Index, GET_MPIDR_AFF1 (mAmdMpCoreInfoTable[Index].Mpidr),
+        GET_MPIDR_AFF0 (mAmdMpCoreInfoTable[Index].Mpidr)));
 
       // Next core in Table
       ++Index;
@@ -186,7 +187,8 @@ PlatInitPeiEntryPoint (
 
   // Update SocCoreCount on Dynamic PCD
   if (PcdGet32 (PcdSocCoreCount) != mAmdCoreCount) {
-    PcdSet32 (PcdSocCoreCount, mAmdCoreCount);
+    Status = PcdSet32S (PcdSocCoreCount, mAmdCoreCount);
+    ASSERT_EFI_ERROR (Status);
   }
 
   DEBUG ((EFI_D_ERROR, "SocCoreCount = %d\n", PcdGet32 (PcdSocCoreCount)));
@@ -201,7 +203,8 @@ PlatInitPeiEntryPoint (
 
   // Update SystemMemorySize on Dynamic PCD
   if (IscpMemDescriptor.Size0) {
-    PcdSet64 (PcdSystemMemorySize, IscpMemDescriptor.Size0);
+    Status = PcdSet64S (PcdSystemMemorySize, IscpMemDescriptor.Size0);
+    ASSERT_EFI_ERROR (Status);
   }
   if (IscpMemDescriptor.Size0 == 0) {
     DEBUG ((EFI_D_ERROR, "Warning: Could not get SystemMemorySize via ISCP, using default value.\n"));
@@ -216,11 +219,18 @@ PlatInitPeiEntryPoint (
                PeiServices, &MacAddrInfo );
     ASSERT_EFI_ERROR (Status);
 
+    // Check for bogus MAC addresses that have the multicast bit set. This
+    // includes FF:FF:FF:FF:FF:FF, which is what you get from the SCP on
+    // some versions of the B0 Overdrive
     MacSize = sizeof(MacAddrInfo.MacAddress0);
-    Status = PcdSetPtrS (PcdEthMacA, &MacSize, MacAddrInfo.MacAddress0);
-    ASSERT_EFI_ERROR (Status);
-    Status = PcdSetPtrS (PcdEthMacB, &MacSize, MacAddrInfo.MacAddress1);
-    ASSERT_EFI_ERROR (Status);
+    if ((MacAddrInfo.MacAddress0[0] & 0x1) == 0x0) {
+      Status = PcdSetPtrS (PcdEthMacA, &MacSize, MacAddrInfo.MacAddress0);
+      ASSERT_EFI_ERROR (Status);
+    }
+    if ((MacAddrInfo.MacAddress1[0] & 0x1) == 0x0) {
+      Status = PcdSetPtrS (PcdEthMacB, &MacSize, MacAddrInfo.MacAddress1);
+      ASSERT_EFI_ERROR (Status);
+    }
 
     DEBUG ((EFI_D_ERROR, "EthMacA = %02x:%02x:%02x:%02x:%02x:%02x\n",
       ((UINT8 *)PcdGetPtr (PcdEthMacA))[0], ((UINT8 *)PcdGetPtr (PcdEthMacA))[1],

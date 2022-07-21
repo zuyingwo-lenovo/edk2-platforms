@@ -1,5 +1,6 @@
 /*******************************************************************************
 Copyright (C) 2016 Marvell International Ltd.
+Copyright (c) 2020, Arm Limited. All rights reserved.<BR>
 
 SPDX-License-Identifier: BSD-2-Clause-Patent
 
@@ -360,6 +361,8 @@ XenonPhySlowMode (
   if (((Timing == SdMmcUhsSdr50) ||
        (Timing == SdMmcUhsSdr25) ||
        (Timing == SdMmcUhsSdr12) ||
+       (Timing == SdMmcSdDs)  ||
+       (Timing == SdMmcSdHs)  ||
        (Timing == SdMmcMmcHsDdr) ||
        (Timing == SdMmcMmcHsSdr) ||
        (Timing == SdMmcMmcLegacy)) && SlowMode) {
@@ -396,7 +399,7 @@ XenonSetPhy (
   Var &= ~(EMMC5_1_FC_CMD_PD | EMMC5_1_FC_DQ_PD);
   XenonHcRwMmio (PciIo, SD_BAR_INDEX, EMMC_PHY_PAD_CONTROL1, FALSE, SDHC_REG_SIZE_4B, &Var);
 
-  if (Timing == SdMmcUhsSdr12) {
+  if (Timing == SdMmcUhsSdr12 || Timing == SdMmcSdDs) {
     if (SlowMode) {
       XenonHcRwMmio (PciIo, SD_BAR_INDEX, EMMC_PHY_TIMING_ADJUST, TRUE, SDHC_REG_SIZE_4B, &Var);
       Var |= QSN_PHASE_SLOW_MODE_BIT;
@@ -627,7 +630,7 @@ XenonTransferPio (
   // solution.
   //
   for (Index = 0; Index < BlockSize; Index += 4) {
-    Offs = Buffer + Index;
+    Offs = (UINT8*)((UINTN)Buffer + Index);
     if (Read) {
       *(UINT32 *)Offs = MmioRead32 (SDHC_DAT_BUF_PORT_ADDR);
     } else {
@@ -697,7 +700,7 @@ XenonTransferData (
 
       XenonTransferPio (Slot, Buffer, BlockSize, Read);
 
-      Buffer += BlockSize;
+      Buffer = (VOID*)((UINTN)Buffer + BlockSize);
       if (++Block >= Blocks) {
         break;
       }
@@ -749,7 +752,7 @@ XenonInit (
 
   // Set lowest clock and the PHY for the initialization phase
   XenonSetClk (PciIo, XENON_MMC_BASE_CLK);
-  Status = XenonSetPhy (PciIo, SlowMode, TuningStepDivisor, SdMmcUhsSdr12);
+  Status = XenonSetPhy (PciIo, SlowMode, TuningStepDivisor, SdMmcSdDs);
   if (EFI_ERROR (Status)) {
     return Status;
   }

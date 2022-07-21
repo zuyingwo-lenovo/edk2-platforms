@@ -1,6 +1,6 @@
 /** @file
 
-Copyright (c) 2018, Intel Corporation. All rights reserved.<BR>
+Copyright (c) 2018 - 2021, Intel Corporation. All rights reserved.<BR>
 SPDX-License-Identifier: BSD-2-Clause-Patent
 
 **/
@@ -192,7 +192,8 @@ PlatformHookInit (
   mAcpiParameter = (BIOS_ACPI_PARAM *)AcpiParameterAddr;
 
   DEBUG ((EFI_D_ERROR, "ACPI Parameter Block Address: 0x%X\n", mAcpiParameter));
-  PcdSet64 (PcdAcpiGnvsAddress, (UINT64)(UINTN)mAcpiParameter);
+  Status = PcdSet64S (PcdAcpiGnvsAddress, (UINT64)(UINTN)mAcpiParameter);
+  ASSERT_EFI_ERROR (Status);
 
   ZeroMem (mAcpiParameter, sizeof (BIOS_ACPI_PARAM));
   mAcpiParameter->PlatformId    = 0;
@@ -460,14 +461,14 @@ InstallAcpiBoard (
   if (GuidHob == NULL) {
     return EFI_NOT_FOUND;
   }
-  mSystemMemoryMap = GET_GUID_HOB_DATA(GuidHob); 
+  mSystemMemoryMap = GET_GUID_HOB_DATA(GuidHob);
 
   PlatformHookInit ();
 
   //
   // Find the AcpiTable protocol
   //
-  Status = gBS->LocateProtocol (&gEfiAcpiTableProtocolGuid, NULL, &AcpiTable);  
+  Status = gBS->LocateProtocol (&gEfiAcpiTableProtocolGuid, NULL, &AcpiTable);
   ASSERT_EFI_ERROR (Status);
 
   //

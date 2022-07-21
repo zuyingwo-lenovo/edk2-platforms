@@ -1,5 +1,5 @@
 #/* @file
-#  Copyright (c) 2011-2018, ARM Limited. All rights reserved.
+#  Copyright (c) 2011-2021, Arm Limited. All rights reserved.
 #
 #  SPDX-License-Identifier: BSD-2-Clause-Patent
 #
@@ -8,7 +8,7 @@
 [Defines]
   INF_VERSION                    = 0x00010005
   BASE_NAME                      = RTSMArmVExpressLib
-  FILE_GUID                      = b98a6cb7-d472-4128-ad62-a7347f85ce13
+  FILE_GUID                      = BCD1958C-B7D1-48E9-B7F9-5ED25F5EBE0B
   MODULE_TYPE                    = BASE
   VERSION_STRING                 = 1.0
   LIBRARY_CLASS                  = ArmPlatformLib
@@ -53,6 +53,16 @@
 
   gArmPlatformTokenSpaceGuid.PcdArmMaliDpBase
   gArmPlatformTokenSpaceGuid.PcdArmMaliDpMemoryRegionLength
+
+  # PCI Configuration space
+  gEfiMdePkgTokenSpaceGuid.PcdPciExpressBaseAddress
+  gEfiMdePkgTokenSpaceGuid.PcdPciExpressBaseSize
+
+  gArmTokenSpaceGuid.PcdPciMmio32Base
+  gArmTokenSpaceGuid.PcdPciMmio32Size
+
+  gArmTokenSpaceGuid.PcdPciMmio64Base
+  gArmTokenSpaceGuid.PcdPciMmio64Size
 
 [Ppis]
   gArmMpCoreInfoPpiGuid

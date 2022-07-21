@@ -1,6 +1,6 @@
 /** @file
 
-Copyright (c) 2018, Intel Corporation. All rights reserved.<BR>
+Copyright (c) 2018 - 2021, Intel Corporation. All rights reserved.<BR>
 SPDX-License-Identifier: BSD-2-Clause-Patent
 
 **/
@@ -50,7 +50,7 @@ CheckAndReAssignSocketId(
   UINTN                 PcdSize;
   EFI_STATUS            Status;
   UINT32                MaxSocketCount;
-  
+
   MaxSocketCount = FixedPcdGet32(PcdMaxCpuSocketCount);
   DEBUG ((EFI_D_ERROR, "::SocketCount %08x\n", MaxSocketCount));
   pcdSktIdPtr = (CPU_SOCKET_ID_INFO *)PcdGetPtr(PcdCpuSocketId);
@@ -132,7 +132,6 @@ PlatformCpuPolicyEntryPoint (
   EFI_HANDLE                       Handle;
   UINT32                           CsrSapmCtl = 0;
   UINT32                           CsrPerfPlimitCtl = 0;
-  UINT8                            ConfigTDPCtrl;
   UINT8                            PCPSOptions = 0;
   UINT32                           AdvPwrMgtCtl;
   UINT8                            socket;
@@ -164,14 +163,14 @@ PlatformCpuPolicyEntryPoint (
   if(GuidHob == NULL) {
     return EFI_NOT_FOUND;
   }
-  mIioUds   = GET_GUID_HOB_DATA(GuidHob); 
+  mIioUds   = GET_GUID_HOB_DATA(GuidHob);
 
   AsmCpuid (1, &CpuFamilyModelStepping, NULL, NULL, NULL);
 
   Status = gBS->AllocatePool (
                         EfiBootServicesData,
                         sizeof(EFI_PPM_STRUCT),
-                        &Addr
+                        (VOID **) &Addr
                         );
   if(Status != EFI_SUCCESS) {
     DEBUG ((EFI_D_INFO, "::Failed to allocate mem for PPM Struct\n"));
@@ -188,10 +187,10 @@ PlatformCpuPolicyEntryPoint (
     PcieInPkgCEntry = (UINT32 *)(((EFI_PPM_STRUCT *)Addr)->Cst.PkgCstEntryCriteriaMaskPcie);
     XePtr = (XE_STRUCT *)(&((EFI_PPM_STRUCT *)Addr)->Xe);
     TurboRatioLimitRatioCores = (TURBO_RATIO_LIMIT_RATIO_CORES *)(&((EFI_PPM_STRUCT *)Addr)->TurboRatioLimitRatioCores);
-    //DEBUG ((EFI_D_INFO, ":: PkgC @ %X XE @ %X\n", PkgCstEntryCriteriaMask, XePtr));
+    DEBUG ((EFI_D_INFO, ":: XE @ %X\n", (UINTN) XePtr));
 
     CStateLatencyCtrl = (MSR_REGISTER *)(ppm->Cst.LatencyCtrl);
-
+    DEBUG ((EFI_D_INFO, "CStateLatencyCtrl[%X]\n", (UINTN) CStateLatencyCtrl));
   }
 
   //
@@ -214,7 +213,7 @@ PlatformCpuPolicyEntryPoint (
     } else {
         PackageCStateSetting = SetupData.SocketConfig.PowerManagementConfig.PackageCState;
     }
-    
+
     // Temporary override to prevent accidental enabling until CR dungeon approves
     if (SetupData.SocketConfig.PowerManagementConfig.PackageCState != 0) {
       DEBUG((EFI_D_ERROR, "Crystal Ridge Configuration Warning: Package c-states are not disabled\n"));
@@ -283,7 +282,7 @@ PlatformCpuPolicyEntryPoint (
                    (SetupData.SocketConfig.PowerManagementConfig.PStateDomain ? PCD_CPU_PCPS_PSTATEDOMAIN : 0) |
                    (UINT8) SetupData.SocketConfig.PowerManagementConfig.ProcessorEistPsdFunc;
 
-    ppm->PcpsCtrl = PCPSOptions;
+    ppm->Pst.PcpsCtrl = PCPSOptions;
     ppm->OverclockingLock = SetupData.SocketConfig.PowerManagementConfig.OverclockingLock;
 
     ppm->FastRaplDutyCycle = SetupData.SocketConfig.PowerManagementConfig.FastRaplDutyCycle;
@@ -363,7 +362,7 @@ PlatformCpuPolicyEntryPoint (
                    ( SetupData.SocketConfig.PowerManagementConfig.Iio2PkgcClkGateDis[socket] << (IIO012_PKGC_CLK_GATE_DISABLE_SHIFT + 2)) );
 
       CsrSapmCtl |= (( SetupData.SocketConfig.PowerManagementConfig.Kti23PkgcClkGateDis[socket] << KTI23_PKGC_CLK_GATE_DISABLE_SHIFT ) |
-                 ( SetupData.SocketConfig.PowerManagementConfig.Kti01PkgcClkGateDis[socket] << KTI01_PKGC_CLK_GATE_DISABLE_SHIFT ) |			 
+                 ( SetupData.SocketConfig.PowerManagementConfig.Kti01PkgcClkGateDis[socket] << KTI01_PKGC_CLK_GATE_DISABLE_SHIFT ) |
                  ( SetupData.SocketConfig.PowerManagementConfig.Kti01pllOffEna[socket] << KTI_PLL_OFF_EN_SHIFT) |
                  ( SetupData.SocketConfig.PowerManagementConfig.Kti23pllOffEna[socket] << (KTI_PLL_OFF_EN_SHIFT + 1) ) );
 
@@ -371,7 +370,7 @@ PlatformCpuPolicyEntryPoint (
                    ( SetupData.SocketConfig.PowerManagementConfig.Mc0PkgcClkGateDis[socket] << MC0_PKGC_CLK_GATE_DISABLE_SHIFT ) |
                    ( SetupData.SocketConfig.PowerManagementConfig.Mc0pllOffEna[socket] << MEM_PLL_OFF_EN_SHIFT) |
                    ( SetupData.SocketConfig.PowerManagementConfig.Mc1pllOffEna[socket] << (MEM_PLL_OFF_EN_SHIFT + 1) ));
-      
+
       if (SetupData.SocketConfig.MemoryConfig.OppSrefEn == 1) {
         CsrSapmCtl |= ((1 << MC0_PKGC_IO_VOLTAGE_REDUCTION_DISABLE_SHIFT) | (1 << MC1_PKGC_IO_VOLTAGE_REDUCTION_DISABLE_SHIFT) |
                       (1 << MC0_PKGC_DIG_VOLTAGE_REDUCTION_DISABLE_SHIFT) | (1 << MC1_PKGC_DIG_VOLTAGE_REDUCTION_DISABLE_SHIFT)) ;
@@ -396,9 +395,11 @@ PlatformCpuPolicyEntryPoint (
                       ( SetupData.SocketConfig.PowerManagementConfig.PerfPLimitEn << REPERF_PLIMIT_EN_SHIFT );
     ppm->PerPLimitCtl = CsrPerfPlimitCtl;
 
-    ConfigTDPCtrl = ( SetupData.SocketConfig.PowerManagementConfig.ConfigTDPLevel << CONFIG_TDP_LEVEL_SHIFT );
-
-    ppm->ConfigTDP = ConfigTDPCtrl;
+    //
+    // IssConfigTdpLevelInfo Bit[23:16]: the currently active Config TDP Level
+    //
+    ppm->Pst.ConfigTdpLevel = (UINT8) ((mIioUds->SystemStatus.IssConfigTdpLevelInfo >> 16) & 0xFF);
+    ppm->Pst.CurrentPackageTdp = (mIioUds->SystemStatus.IssConfigTdpTdpInfo[0][ppm->Pst.ConfigTdpLevel] & 0x7FFF);
 
     for( socket = 0; socket < MAX_SOCKET; socket++) {
         UpiInPkgCEntry[socket] = (SetupData.SocketConfig.PowerManagementConfig.Kti0In[socket] |
@@ -424,19 +425,19 @@ PlatformCpuPolicyEntryPoint (
           PcieInPkgCEntry[socket] |= (SET_PCIEx_MASK << 20);
         }
 
-    } 
+    }
 
     AdvPwrMgtCtl = (SetupData.SocketConfig.PowerManagementConfig.SapmctlValCtl? PCD_CPU_SAPM_CTL_VAL_CTL : 0) |
                   (SetupData.SocketConfig.PowerManagementConfig.CurrentConfig? PCD_CPU_CURRENT_CONFIG : 0) |
                   (SetupData.SocketConfig.PowerManagementConfig.BootPState? PCU_CPU_EFFICIENT_BOOT : 0) |
                   (SetupData.SocketConfig.SocketProcessorCoreConfiguration.ProcessorMsrLockControl? CPU_MSR_LOCK : 0) |
                   (SetupData.SocketConfig.PowerManagementConfig.TurboPowerLimitCsrLock? TURBO_LIMIT_CSR_LOCK : 0);
- 
+
     AdvPwrMgtCtl |= SetupData.SocketConfig.PowerManagementConfig.PkgCstEntryValCtl; //PCD_CPU_PKG_CST_ENTRY_VAL_CTL
 
     if (SetupData.SocketConfig.PowerManagementConfig.ProcessorEistEnable == 0) {
       AdvPwrMgtCtl |= PCU_CPU_EFFICIENT_BOOT;
-    } 
+    }
 
     if (((CpuFamilyModelStepping >> 4) == CPU_FAMILY_HSX) && SetupData.SocketConfig.PowerManagementConfig.PriPlnCurCfgValCtl) {
       AdvPwrMgtCtl |= PCD_CPU_PRI_PLN_CURR_CFG_CTL;
@@ -484,7 +485,7 @@ PlatformCpuPolicyEntryPoint (
         ( SetupData.SocketConfig.PowerManagementConfig.Psi2Thshld << PSI2_THSHLD_SHIFT ) |
         ( SetupData.SocketConfig.PowerManagementConfig.Psi1Code << PSI1_CODE_SHIFT ) |
         ( SetupData.SocketConfig.PowerManagementConfig.Psi1Thshld << PSI1_THSHLD_SHIFT );
-    } 
+    }
 
     MsrPriPlaneCurrentCfgCtlLow = ( SetupData.SocketConfig.PowerManagementConfig.PpcccLock << PPCCC_LOCK_SHIFT ) |
       ( SetupData.SocketConfig.PowerManagementConfig.CurrentLimit << CURRENT_LIMIT_SHIFT );
@@ -583,7 +584,7 @@ PlatformCpuPolicyEntryPoint (
     ppm->Hwpm.EPPEnable = SetupData.SocketConfig.PowerManagementConfig.ProcessorEPPEnable;
     ppm->Hwpm.EPPProfile = SetupData.SocketConfig.PowerManagementConfig.ProcessorEppProfile;
 
-    if ((SetupData.SocketConfig.PowerManagementConfig.ProcessorHWPMEnable == 1) || 
+    if ((SetupData.SocketConfig.PowerManagementConfig.ProcessorHWPMEnable == 1) ||
        (SetupData.SocketConfig.PowerManagementConfig.ProcessorHWPMEnable == 3)) {
       ppm->Hwpm.HWPMNative = SetupData.SocketConfig.PowerManagementConfig.ProcessorHWPMEnable;
     }else if (SetupData.SocketConfig.PowerManagementConfig.ProcessorHWPMEnable == 2){
@@ -598,7 +599,6 @@ PlatformCpuPolicyEntryPoint (
 
     ppm->Hwpm.APSrocketing = SetupData.SocketConfig.PowerManagementConfig.ProcessorAPSrocketing;
     ppm->Hwpm.Scalability = SetupData.SocketConfig.PowerManagementConfig.ProcessorScalability;
-    ppm->Hwpm.PPOBudget = SetupData.SocketConfig.PowerManagementConfig.ProcessorPPOBudget;
     ppm->Hwpm.OutofBandAlternateEPB = SetupData.SocketConfig.PowerManagementConfig.ProcessorOutofBandAlternateEPB;
 
     if(SetupData.SocketConfig.SocketProcessorCoreConfiguration.ProcessorX2apic && SetupData.SocketConfig.SocketProcessorCoreConfiguration.ForceX2ApicIds &&
@@ -637,7 +637,7 @@ PlatformCpuPolicyEntryPoint (
      ASSERT_EFI_ERROR (Status);
      if (EFI_ERROR(Status)) return Status;
   }
- 
+
   //
   // Cpu Driver could be dispatched after this protocol installed.
   //
@@ -652,4 +652,3 @@ PlatformCpuPolicyEntryPoint (
 
   return Status;
 }
-

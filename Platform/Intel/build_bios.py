@@ -1,9 +1,11 @@
-
+#!/usr/bin/env python3
+#
 # @ build_bios.py
 # Builds BIOS using configuration files and dynamically
 # imported functions from board directory
 #
-# Copyright (c) 2019, Intel Corporation. All rights reserved.<BR>
+# Copyright (c) 2019 - 2020, Intel Corporation. All rights reserved.<BR>
+# Copyright (c) 2021, American Megatrends International LLC.<BR>
 # SPDX-License-Identifier: BSD-2-Clause-Patent
 #
 
@@ -16,6 +18,7 @@ imported functions from board directory
 import os
 import re
 import sys
+import glob
 import signal
 import shutil
 import argparse
@@ -34,7 +37,7 @@ except ImportError:
 def pre_build(build_config, build_type="DEBUG", silent=False, toolchain=None):
     """Sets the environment variables that shall be used for the build
 
-        :param build_config: The build configuration as defined in the JOSN
+        :param build_config: The build configuration as defined in the JSON
             configuration files
         :type build_config: Dictionary
         :param build_type: The build target, DEBUG, RELEASE, RELEASE_PDB,
@@ -57,7 +60,7 @@ def pre_build(build_config, build_type="DEBUG", silent=False, toolchain=None):
     # update the current config with the build config
     config.update(build_config)
 
-    # make the config and build python 2.7 compartible
+    # make the config and build python 2.7 compatible
     config = py_27_fix(config)
 
     # Set WORKSPACE environment.
@@ -104,6 +107,10 @@ def pre_build(build_config, build_type="DEBUG", silent=False, toolchain=None):
                                                 config["WORKSPACE_PLATFORM"])
     config["WORKSPACE_SILICON"] = os.path.join(config["WORKSPACE"],
                                                config["WORKSPACE_SILICON"])
+    config["WORKSPACE_FEATURES"] = os.path.join(config["WORKSPACE"],
+                                               config["WORKSPACE_FEATURES"])
+    config["WORKSPACE_DRIVERS"] = os.path.join(config["WORKSPACE"],
+                                               config["WORKSPACE_DRIVERS"])
     config["WORKSPACE_PLATFORM_BIN"] = \
         os.path.join(config["WORKSPACE"], config["WORKSPACE_PLATFORM_BIN"])
     config["WORKSPACE_SILICON_BIN"] = \
@@ -115,10 +122,19 @@ def pre_build(build_config, build_type="DEBUG", silent=False, toolchain=None):
     config["PACKAGES_PATH"] = config["WORKSPACE_PLATFORM"]
     config["PACKAGES_PATH"] += os.pathsep + config["WORKSPACE_SILICON"]
     config["PACKAGES_PATH"] += os.pathsep + config["WORKSPACE_SILICON_BIN"]
+    config["PACKAGES_PATH"] += os.pathsep + config["WORKSPACE_FEATURES"]
+    # add all feature domains in WORKSPACE_FEATURES to package path
+    for filename in os.listdir(config["WORKSPACE_FEATURES"]):
+        filepath = os.path.join(config["WORKSPACE_FEATURES"], filename)
+        # feature domains folder does not contain dec file
+        if os.path.isdir(filepath) and \
+          not glob.glob(os.path.join(filepath, "*.dec")):
+            config["PACKAGES_PATH"] += os.pathsep + filepath
+    config["PACKAGES_PATH"] += os.pathsep + config["WORKSPACE_DRIVERS"]
     config["PACKAGES_PATH"] += os.pathsep + \
-        os.path.join(config["WORKSPACE"], "FSP")
+        os.path.join(config["WORKSPACE"], config["WORKSPACE_FSP_BIN"])
     config["PACKAGES_PATH"] += os.pathsep + \
-        os.path.join(config["WORKSPACE"], "edk2")
+        os.path.join(config["WORKSPACE"], config["WORKSPACE_CORE"])
     config["PACKAGES_PATH"] += os.pathsep + os.path.join(config["WORKSPACE"])
     config["PACKAGES_PATH"] += os.pathsep + config["WORKSPACE_PLATFORM_BIN"]
     config["EDK_TOOLS_PATH"] = os.path.join(config["WORKSPACE"],
@@ -192,6 +208,31 @@ def pre_build(build_config, build_type="DEBUG", silent=False, toolchain=None):
     _, _, result, return_code = execute_script(command, config, shell=shell)
     if return_code != 0:
         build_failed(config)
+
+    #
+    # build platform silicon tools
+    #
+    # save the current workspace
+    saved_work_directory = config["WORKSPACE"]
+    # change the workspace to silicon tools directory
+    config["WORKSPACE"] = os.path.join(config["WORKSPACE_SILICON"], "Tools")
+
+    command = ["nmake"]
+    if os.name == "posix":  # linux
+        command = ["make"]
+        # add path to generated FitGen binary to
+        # environment path variable
+        config["PATH"] += os.pathsep + \
+                          os.path.join(config["BASE_TOOLS_PATH"],
+                                       "Source", "C", "bin")
+
+    # build the silicon tools
+    _, _, result, return_code = execute_script(command, config, shell=shell)
+    if return_code != 0:
+        build_failed(config)
+
+    # restore WORKSPACE environment variable
+    config["WORKSPACE"] = saved_work_directory
 
     config["SILENT_MODE"] = 'TRUE' if silent else 'FALSE'
 
@@ -350,7 +391,10 @@ def build(config):
         command.append(config["REBUILD_MODE"])
 
     if config["EXT_BUILD_FLAGS"] and config["EXT_BUILD_FLAGS"] != "":
-        command.append(config["EXT_BUILD_FLAGS"])
+        ext_build_flags = config["EXT_BUILD_FLAGS"].split(" ")
+        ext_build_flags = [x.strip() for x in ext_build_flags]
+        ext_build_flags = [x for x in ext_build_flags if x != ""]
+        command.extend(ext_build_flags)
 
     if config.get('BINARY_CACHE_CMD_LINE'):
         command.append(config['HASH'])
@@ -401,6 +445,35 @@ def post_build(config):
     :returns: nothing
     """
     print("Running post_build to complete the build process.")
+    board_fd = config["BOARD"].upper()
+    final_fd = os.path.join(config["BUILD_DIR_PATH"], "FV",
+                            "{}.fd".format(board_fd))
+
+    if config["BIOS_INFO_GUID"]:
+        # Generate the fit table
+        print("Generating FIT ...")
+        if os.path.isfile(final_fd):
+            temp_fd = os.path.join(config["BUILD_DIR_PATH"], "FV",
+                                   "{}_.fd".format(board_fd))
+            shell = True
+            command = ["FitGen", "-D",
+                       final_fd, temp_fd, "-NA",
+                       "-I", config["BIOS_INFO_GUID"]]   #@todo: Need mechanism to add additional options to the FitGen command line
+
+            if os.name == "posix": # linux
+                shell = False
+
+            _, _, result, return_code = execute_script(command, config, shell=shell)
+            if return_code != 0:
+                print("Error while generating fit")
+            else:
+                # copy output to final binary
+                shutil.copyfile(temp_fd, final_fd)
+                # remove temp file
+                os.remove(temp_fd)
+        else:
+            print("{} does not exist".format(final_fd))
+            # remove temp file
 
     # Additional build scripts for this platform
     result = post_build_ex(config)
@@ -423,6 +496,9 @@ def post_build(config):
             except OSError:
                 pass
 
+    print("Done")
+    if os.path.isfile(final_fd):
+        print("Fd file can be found at {}".format(final_fd))
 
 def build_failed(config):
     """Displays results when build fails
@@ -529,7 +605,7 @@ def post_build_ex(config):
 
 
 def clean_ex(config):
-    """ An extension of the platform cleanning
+    """ An extension of the platform cleaning
 
         :param config: The environment variables used in the clean process
         :type config: Dictionary
@@ -587,7 +663,7 @@ def execute_script(command, env_variables, collect_env=False,
         :type command:  List:String
         :param env_variables: Environment variables passed to the process
         :type env_variables: String
-        :param collect_env: Enables the collection of evironment variables
+        :param collect_env: Enables the collection of environment variables
             when process execution is done
         :type collect_env: Boolean
         :param enable_std_pipe: Enables process out to be piped to
@@ -634,7 +710,7 @@ def execute_script(command, env_variables, collect_env=False,
     # wait for process to be done
     execute.wait()
 
-    # if collect enviroment variables
+    # if collect environment variables
     if collect_env:
         # get the new environment variables
         std_out, env = get_environment_variables(std_out, env_marker)
@@ -642,7 +718,7 @@ def execute_script(command, env_variables, collect_env=False,
 
 
 def patch_config(config):
-    """ An extension of the platform cleanning
+    """ An extension of the platform cleaning
 
         :param config: The environment variables used in the build process
         :type config: Dictionary
@@ -817,7 +893,7 @@ def get_config():
 
 
 def get_platform_config(platform_name, config_data):
-    """ Reads the platform specifig config file
+    """ Reads the platform specific config file
 
         param platform_name: The name of the platform to be built
         :type platform_name: String

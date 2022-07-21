@@ -1,6 +1,6 @@
 /** @file
 
-Copyright (c) 2017, Intel Corporation. All rights reserved.<BR>
+Copyright (c) 2017 - 2019, Intel Corporation. All rights reserved.<BR>
 SPDX-License-Identifier: BSD-2-Clause-Patent
 
 **/
@@ -477,7 +477,7 @@ DumpAcpiTable (
   )
 {
   EFI_ACPI_5_0_FIXED_ACPI_DESCRIPTION_TABLE  *Fadt;
-  
+
   if (Table == NULL) {
     return ;
   }
@@ -535,7 +535,7 @@ CheckAcpiTableResource (
   )
 {
   EFI_ACPI_5_0_FIXED_ACPI_DESCRIPTION_TABLE  *Fadt;
-  
+
   if (Table == NULL) {
     return EFI_INVALID_PARAMETER;
   }
@@ -592,7 +592,7 @@ EFI_STATUS
 DumpAcpiRsdt (
   IN EFI_ACPI_DESCRIPTION_HEADER  *Rsdt,
   IN UINT32                       *Signature, OPTIONAL
-  OUT VOID                        **OutTable,
+  OUT VOID                        **OutTable, OPTIONAL
   IN BOOLEAN                      DumpPrint,
   IN BOOLEAN                      CheckResource
   )
@@ -610,6 +610,8 @@ DumpAcpiRsdt (
 
   if (OutTable != NULL) {
     *OutTable = NULL;
+  } else if ((OutTable == NULL) && (Signature != NULL)) {
+    return EFI_INVALID_PARAMETER;
   }
 
   ReturnStatus = EFI_SUCCESS;
@@ -630,7 +632,7 @@ DumpAcpiRsdt (
       *OutTable = Table;
     }
   }
-  
+
   if (OutTable != NULL) {
     if (*OutTable == NULL) {
       return EFI_NOT_FOUND;
@@ -644,7 +646,7 @@ EFI_STATUS
 DumpAcpiXsdt (
   IN EFI_ACPI_DESCRIPTION_HEADER  *Xsdt,
   IN UINT32                       *Signature, OPTIONAL
-  OUT VOID                        **OutTable,
+  OUT VOID                        **OutTable, OPTIONAL
   IN BOOLEAN                      DumpPrint,
   IN BOOLEAN                      CheckResource
   )
@@ -660,14 +662,16 @@ DumpAcpiXsdt (
   if (Xsdt == NULL) {
     return EFI_INVALID_PARAMETER;
   }
-  
+
   if (OutTable != NULL) {
     *OutTable = NULL;
+  } else if ((OutTable == NULL) && (Signature != NULL)) {
+    return EFI_INVALID_PARAMETER;
   }
 
   ReturnStatus = EFI_SUCCESS;
   EntryCount = (Xsdt->Length - sizeof (EFI_ACPI_DESCRIPTION_HEADER)) / sizeof(UINT64);
-  
+
   BasePtr = (UINTN)(Xsdt + 1);
   for (Index = 0; Index < EntryCount; Index ++) {
     CopyMem (&EntryPtr, (VOID *)(BasePtr + Index * sizeof(UINT64)), sizeof(UINT64));
@@ -779,7 +783,7 @@ TestPointCheckAcpi (
   if (Status == EFI_NOT_FOUND) {
     Status = DumpAcpiWithGuid (&gEfiAcpi10TableGuid, NULL, NULL, TRUE, FALSE);
   }
-  
+
   if (EFI_ERROR(Status)) {
     DEBUG ((DEBUG_ERROR, "No ACPI table\n"));
     TestPointLibAppendErrorString (
@@ -792,7 +796,7 @@ TestPointCheckAcpi (
   }
 
   DEBUG ((DEBUG_INFO, "==== TestPointCheckAcpi - Exit\n"));
-  
+
   return Status;
 }
 
@@ -802,9 +806,9 @@ TestPointCheckAcpiGcdResource (
   )
 {
   EFI_STATUS  Status;
-  
+
   DEBUG ((DEBUG_INFO, "==== TestPointCheckAcpiGcdResource - Enter\n"));
-  
+
   //
   // Check the ACPI existence
   //
@@ -812,7 +816,7 @@ TestPointCheckAcpiGcdResource (
   if (Status == EFI_NOT_FOUND) {
     Status = DumpAcpiWithGuid (&gEfiAcpi10TableGuid, NULL, NULL, FALSE, FALSE);
   }
-  
+
   if (!EFI_ERROR(Status)) {
     //
     // Then check resource in ACPI and GCD
@@ -824,7 +828,7 @@ TestPointCheckAcpiGcdResource (
       Status = DumpAcpiWithGuid (&gEfiAcpi10TableGuid, NULL, NULL, FALSE, TRUE);
     }
   }
-  
+
   if (EFI_ERROR(Status)) {
     DEBUG ((DEBUG_ERROR, "ACPI table resource not in GCD\n"));
     TestPointLibAppendErrorString (
@@ -836,7 +840,7 @@ TestPointCheckAcpiGcdResource (
       );
   }
   DEBUG ((DEBUG_INFO, "==== TestPointCheckAcpiGcdResource - Exit\n"));
-  
+
   return Status;
 }
 

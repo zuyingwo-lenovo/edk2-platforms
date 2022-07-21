@@ -1,5 +1,6 @@
 #
 #  Copyright (c) 2013-2018, ARM Limited. All rights reserved.
+#  (C) Copyright 2021 Hewlett Packard Enterprise Development LP<BR>
 #
 #  SPDX-License-Identifier: BSD-2-Clause-Patent
 #
@@ -26,6 +27,7 @@
 
 # On RTSM, most peripherals are VExpress Motherboard peripherals
 !include Platform/ARM/VExpressPkg/ArmVExpress.dsc.inc
+!include MdePkg/MdeLibs.dsc.inc
 
 !ifdef DYNAMIC_TABLES_FRAMEWORK
 !include DynamicTablesPkg/DynamicTables.dsc.inc
@@ -150,9 +152,9 @@
 !endif
 
   # LAN9118 Ethernet Driver
-  gEmbeddedTokenSpaceGuid.PcdLan9118DxeBaseAddress|0x18000000
-  gEmbeddedTokenSpaceGuid.PcdLan9118DefaultMacAddress|0x1215161822242628
-  gEmbeddedTokenSpaceGuid.PcdLan9118DefaultNegotiationTimeout|40000
+  gArmVExpressTokenSpaceGuid.PcdLan9118DxeBaseAddress|0x18000000
+  gArmVExpressTokenSpaceGuid.PcdLan9118DefaultMacAddress|0x1215161822242628
+  gArmVExpressTokenSpaceGuid.PcdLan9118DefaultNegotiationTimeout|40000
 
   #
   # ARM Generic Interrupt Controller
@@ -177,7 +179,7 @@
   gArmTokenSpaceGuid.PcdPciMmio64Size|0x100000000
 
   gEfiMdePkgTokenSpaceGuid.PcdPciExpressBaseAddress|0x40000000
-  gArmTokenSpaceGuid.PcdPciIoTranslation|0x5f800000
+  gEfiMdePkgTokenSpaceGuid.PcdPciIoTranslation|0x5f800000
   gEmbeddedTokenSpaceGuid.PcdPrePiCpuIoSize|24
 
   # List of Device Paths that support BootMonFs
@@ -314,7 +316,7 @@
   # SATA Controller
   #
   MdeModulePkg/Bus/Ata/AtaBusDxe/AtaBusDxe.inf
-  EmbeddedPkg/Drivers/SataSiI3132Dxe/SataSiI3132Dxe.inf
+  Platform/ARM/JunoPkg/Drivers/SataSiI3132Dxe/SataSiI3132Dxe.inf
 
   #
   # NVMe boot devices
@@ -324,7 +326,7 @@
   #
   # Networking stack
   #
-  EmbeddedPkg/Drivers/Lan9118Dxe/Lan9118Dxe.inf
+  Platform/ARM/VExpressPkg/Drivers/Lan9118Dxe/Lan9118Dxe.inf
 !if 0
   OptionRomPkg/MarvellYukonDxe/MarvellYukonDxe.inf
 !endif
@@ -360,12 +362,14 @@
   #
   # Bds
   #
+  MdeModulePkg/Universal/BootManagerPolicyDxe/BootManagerPolicyDxe.inf
   MdeModulePkg/Universal/DevicePathDxe/DevicePathDxe.inf
   MdeModulePkg/Universal/DisplayEngineDxe/DisplayEngineDxe.inf
   MdeModulePkg/Universal/SetupBrowserDxe/SetupBrowserDxe.inf
   MdeModulePkg/Universal/BdsDxe/BdsDxe.inf
   MdeModulePkg/Application/UiApp/UiApp.inf {
     <LibraryClasses>
+      NULL|MdeModulePkg/Library/BootDiscoveryPolicyUiLib/BootDiscoveryPolicyUiLib.inf
       NULL|MdeModulePkg/Library/DeviceManagerUiLib/DeviceManagerUiLib.inf
       NULL|MdeModulePkg/Library/BootManagerUiLib/BootManagerUiLib.inf
       NULL|MdeModulePkg/Library/BootMaintenanceManagerUiLib/BootMaintenanceManagerUiLib.inf

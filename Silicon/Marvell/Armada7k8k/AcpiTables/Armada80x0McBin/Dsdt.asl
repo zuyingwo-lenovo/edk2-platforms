@@ -8,6 +8,7 @@
 
 **/
 
+#include "Armada80x0McBin/Dbg2.h"
 #include "Armada80x0McBin/Pcie.h"
 #include "IcuInterrupts.h"
 
@@ -19,21 +20,37 @@ DefinitionBlock ("DSDT.aml", "DSDT", 2, "MVEBU ", "ARMADA8K", 3)
         {
             Name (_HID, "ACPI0007" /* Processor Device */)  // _HID: Hardware ID
             Name (_UID, 0x000)  // _UID: Unique ID
+            Method (_STA)       // _STA: Device status
+            {
+                Return (0xF)
+            }
         }
         Device (CPU1)
         {
             Name (_HID, "ACPI0007" /* Processor Device */)  // _HID: Hardware ID
             Name (_UID, 0x001)  // _UID: Unique ID
+            Method (_STA)       // _STA: Device status
+            {
+                Return (0xF)
+            }
         }
         Device (CPU2)
         {
             Name (_HID, "ACPI0007" /* Processor Device */)  // _HID: Hardware ID
             Name (_UID, 0x100)  // _UID: Unique ID
+            Method (_STA)       // _STA: Device status
+            {
+                Return (0xF)
+            }
         }
         Device (CPU3)
         {
             Name (_HID, "ACPI0007" /* Processor Device */)  // _HID: Hardware ID
             Name (_UID, 0x101)  // _UID: Unique ID
+            Method (_STA)       // _STA: Device status
+            {
+                Return (0xF)
+            }
         }
 
         Device (AHC0)
@@ -41,6 +58,10 @@ DefinitionBlock ("DSDT.aml", "DSDT", 2, "MVEBU ", "ARMADA8K", 3)
             Name (_HID, "LNRO001E")     // _HID: Hardware ID
             Name (_UID, 0x00)           // _UID: Unique ID
             Name (_CCA, 0x01)           // _CCA: Cache Coherency Attribute
+            Method (_STA)               // _STA: Device status
+            {
+                Return (0xF)
+            }
             Name (_CLS, Package (0x03)  // _CLS: Class Code
             {
                 0x01,
@@ -86,11 +107,82 @@ DefinitionBlock ("DSDT.aml", "DSDT", 2, "MVEBU ", "ARMADA8K", 3)
             })
         }
 
+        Device (MMC0)
+        {
+            Name (_HID, "MRVL0002")     // _HID: Hardware ID
+            Name (_UID, 0x00)           // _UID: Unique ID
+            Name (_CCA, 0x01)           // _CCA: Cache Coherency Attribute
+            Method (_STA)               // _STA: Device status
+            {
+                Return (0xF)
+            }
+
+            Name (_CRS, ResourceTemplate ()  // _CRS: Current Resource Settings
+            {
+                Memory32Fixed (ReadWrite,
+                    0xF06E0000,         // Address Base (MMIO)
+                    0x00000300,         // Address Length
+                    )
+                Interrupt (ResourceConsumer, Level, ActiveHigh, Exclusive, ,, )
+                {
+                  48
+                }
+            })
+            Name (_DSD, Package () {
+                ToUUID("daffd814-6eba-4d8c-8a91-bc9bbf4aa301"),
+                Package () {
+                      Package () { "clock-frequency", 400000000 },
+                      Package () { "bus-width", 8 },
+                      Package () { "marvell,xenon-phy-slow-mode", 0x1 },
+                      Package () { "no-1-8-v", 0x1 },
+                      Package () { "no-sd", 0x1 },
+                      Package () { "no-sdio", 0x1  },
+                      Package () { "non-removable", 0x1  },
+                }
+            })
+        }
+
+        Device (MMC1)
+        {
+            Name (_HID, "MRVL0004")     // _HID: Hardware ID
+            Name (_UID, 0x01)           // _UID: Unique ID
+            Name (_CCA, 0x01)           // _CCA: Cache Coherency Attribute
+            Method (_STA)               // _STA: Device status
+            {
+                Return (0xF)
+            }
+
+            Name (_CRS, ResourceTemplate ()  // _CRS: Current Resource Settings
+            {
+                Memory32Fixed (ReadWrite,
+                    0xF2780000,         // Address Base (MMIO)
+                    0x00000300,         // Address Length
+                    )
+                Interrupt (ResourceConsumer, Level, ActiveHigh, Exclusive, ,, )
+                {
+                  CP_GIC_SPI_CP0_SDMMC
+                }
+            })
+            Name (_DSD, Package () {
+                ToUUID("daffd814-6eba-4d8c-8a91-bc9bbf4aa301"),
+                Package () {
+                      Package () { "clock-frequency", 400000000 },
+                      Package () { "bus-width", 4 },
+                      Package () { "broken-cd", 0x1 },
+                      Package () { "no-1-8-v", 0x1 },
+                }
+            })
+        }
+
         Device (XHC0)
         {
             Name (_HID, "PNP0D10")      // _HID: Hardware ID
             Name (_UID, 0x00)           // _UID: Unique ID
             Name (_CCA, 0x01)           // _CCA: Cache Coherency Attribute
+            Method (_STA)               // _STA: Device status
+            {
+                Return (0xF)
+            }
 
             Name (_CRS, ResourceTemplate ()  // _CRS: Current Resource Settings
             {
@@ -110,6 +202,10 @@ DefinitionBlock ("DSDT.aml", "DSDT", 2, "MVEBU ", "ARMADA8K", 3)
             Name (_HID, "PNP0D10")      // _HID: Hardware ID
             Name (_UID, 0x01)           // _UID: Unique ID
             Name (_CCA, 0x01)           // _CCA: Cache Coherency Attribute
+            Method (_STA)               // _STA: Device status
+            {
+                Return (0xF)
+            }
 
             Name (_CRS, ResourceTemplate ()  // _CRS: Current Resource Settings
             {
@@ -129,6 +225,10 @@ DefinitionBlock ("DSDT.aml", "DSDT", 2, "MVEBU ", "ARMADA8K", 3)
             Name (_HID, "PNP0D10")      // _HID: Hardware ID
             Name (_UID, 0x02)           // _UID: Unique ID
             Name (_CCA, 0x01)           // _CCA: Cache Coherency Attribute
+            Method (_STA)               // _STA: Device status
+            {
+                Return (0xF)
+            }
 
             Name (_CRS, ResourceTemplate ()  // _CRS: Current Resource Settings
             {
@@ -147,6 +247,11 @@ DefinitionBlock ("DSDT.aml", "DSDT", 2, "MVEBU ", "ARMADA8K", 3)
         {
             Name (_HID, "MRVL0001")                             // _HID: Hardware ID
             Name (_CID, "HISI0031")                             // _CID: Compatible ID
+            Name (_UID, 0x00)                                   // _UID: Unique ID
+            Method (_STA)                                       // _STA: Device status
+            {
+                Return (0xF)
+            }
             Name (_ADR, FixedPcdGet64(PcdSerialRegisterBase))   // _ADR: Address
             Name (_CRS, ResourceTemplate ()                     // _CRS: Current Resource Settings
             {
@@ -169,15 +274,109 @@ DefinitionBlock ("DSDT.aml", "DSDT", 2, "MVEBU ", "ARMADA8K", 3)
             })
         }
 
+        Device (COM2)
+        {
+            Name (_HID, "MRVL0001")                             // _HID: Hardware ID
+            Name (_CID, "HISI0031")                             // _CID: Compatible ID
+            Name (_UID, 0x01)                                   // _UID: Unique ID
+            Method (_STA)                                       // _STA: Device status
+            {
+                Return (0xF)
+            }
+            Name (_ADR, ARMADA80X0_MCBIN_DBG2_UART_REG_BASE)    // _ADR: Address
+            Name (_CRS, ResourceTemplate ()                     // _CRS: Current Resource Settings
+            {
+                Memory32Fixed (ReadWrite,
+                    ARMADA80X0_MCBIN_DBG2_UART_REG_BASE,        // Address Base
+                    0x00000100,                                 // Address Length
+                    )
+                Interrupt (ResourceConsumer, Level, ActiveHigh, Exclusive, ,, )
+                {
+                  CP_GIC_SPI_CP0_UART1
+                }
+            })
+            Name (_DSD, Package () {
+                ToUUID("daffd814-6eba-4d8c-8a91-bc9bbf4aa301"),
+                Package () {
+                      Package () { "clock-frequency", FixedPcdGet32 (PcdSerialClockRate) },
+                      Package () { "reg-io-width", 1 },
+                      Package () { "reg-shift", 2 },
+                }
+            })
+        }
+
+        Device (SMI0)
+        {
+            Name (_HID, "MRVL0100")                             // _HID: Hardware ID
+            Name (_UID, 0x00)                                   // _UID: Unique ID
+            Method (_STA)                                       // _STA: Device status
+            {
+                Return (0xF)
+            }
+            Name (_CRS, ResourceTemplate ()
+            {
+                Memory32Fixed (ReadWrite,
+                    0xf212a200,                                 // Address Base
+                    0x00000010,                                 // Address Length
+                    )
+            })
+            Device (PHY0)
+            {
+                Name (_ADR, 0x0)
+            }
+        }
+
+        Device (XSMI)
+        {
+            Name (_HID, "MRVL0101")                             // _HID: Hardware ID
+            Name (_UID, 0x00)                                   // _UID: Unique ID
+            Method (_STA)                                       // _STA: Device status
+            {
+                Return (0xF)
+            }
+            Name (_CRS, ResourceTemplate ()
+            {
+                Memory32Fixed (ReadWrite,
+                    0xf212a600,                                 // Address Base
+                    0x00000010,                                 // Address Length
+                    )
+            })
+            Device (PHY0)
+            {
+                Name (_ADR, 0x0)
+                Name (_DSD, Package () {
+                    ToUUID("daffd814-6eba-4d8c-8a91-bc9bbf4aa301"),
+                    Package () {
+                        Package () { "compatible", "ethernet-phy-ieee802.3-c45" },
+                    }
+                })
+            }
+            Device (PHY8)
+            {
+                Name (_ADR, 0x8)
+                Name (_DSD, Package () {
+                    ToUUID("daffd814-6eba-4d8c-8a91-bc9bbf4aa301"),
+                    Package () {
+                        Package () { "compatible", "ethernet-phy-ieee802.3-c45" },
+                    }
+                })
+            }
+        }
+
         Device (PP20)
         {
             Name (_HID, "MRVL0110")                             // _HID: Hardware ID
             Name (_CCA, 0x01)                                   // Cache-coherent controller
             Name (_UID, 0x00)                                   // _UID: Unique ID
+            Method (_STA)                                       // _STA: Device status
+            {
+                Return (0xF)
+            }
             Name (_CRS, ResourceTemplate ()
             {
                 Memory32Fixed (ReadWrite, 0xf2000000 , 0x100000)
                 Memory32Fixed (ReadWrite, 0xf2129000 , 0xb000)
+                Memory32Fixed (ReadWrite, 0xf2220000 , 0x800)
             })
             Name (_DSD, Package () {
                 ToUUID("daffd814-6eba-4d8c-8a91-bc9bbf4aa301"),
@@ -201,6 +400,7 @@ DefinitionBlock ("DSDT.aml", "DSDT", 2, "MVEBU ", "ARMADA8K", 3)
                     Package () { "port-id", 0 },
                     Package () { "gop-port-id", 0 },
                     Package () { "phy-mode", "10gbase-kr"},
+                    Package () { "phy-handle", \_SB.XSMI.PHY0},
                   }
               })
             }
@@ -211,10 +411,15 @@ DefinitionBlock ("DSDT.aml", "DSDT", 2, "MVEBU ", "ARMADA8K", 3)
             Name (_HID, "MRVL0110")                             // _HID: Hardware ID
             Name (_CCA, 0x01)                                   // Cache-coherent controller
             Name (_UID, 0x01)                                   // _UID: Unique ID
+            Method (_STA)                                       // _STA: Device status
+            {
+                Return (0xF)
+            }
             Name (_CRS, ResourceTemplate ()
             {
                 Memory32Fixed (ReadWrite, 0xf4000000 , 0x100000)
                 Memory32Fixed (ReadWrite, 0xf4129000 , 0xb000)
+                Memory32Fixed (ReadWrite, 0xf4220000 , 0x800)
             })
             Name (_DSD, Package () {
                 ToUUID("daffd814-6eba-4d8c-8a91-bc9bbf4aa301"),
@@ -238,6 +443,7 @@ DefinitionBlock ("DSDT.aml", "DSDT", 2, "MVEBU ", "ARMADA8K", 3)
                     Package () { "port-id", 0 },
                     Package () { "gop-port-id", 0 },
                     Package () { "phy-mode", "10gbase-kr"},
+                    Package () { "phy-handle", \_SB.XSMI.PHY8},
                   }
               })
             }
@@ -257,15 +463,40 @@ DefinitionBlock ("DSDT.aml", "DSDT", 2, "MVEBU ", "ARMADA8K", 3)
                     Package () { "port-id", 1 },
                     Package () { "gop-port-id", 2 },
                     Package () { "phy-mode", "sgmii"},
+                    Package () { "phy-handle", \_SB.SMI0.PHY0},
                   }
               })
-           }
+            }
+            Device (ETH2)
+            {
+              Name (_ADR, 0x0)
+              Name (_CRS, ResourceTemplate ()
+              {
+                  Interrupt (ResourceConsumer, Level, ActiveHigh, Exclusive, ,, )
+                  {
+                    CP_GIC_SPI_PP2_CP1_PORT2
+                  }
+              })
+              Name (_DSD, Package () {
+                  ToUUID("daffd814-6eba-4d8c-8a91-bc9bbf4aa301"),
+                  Package () {
+                    Package () { "port-id", 2 },
+                    Package () { "gop-port-id", 3 },
+                    Package () { "phy-mode", "2500base-x"},
+                    Package () { "managed", "in-band-status"},
+                  }
+              })
+            }
         }
 
         Device (RNG0)
         {
             Name (_HID, "PRP0001")                                 // _HID: Hardware ID
             Name (_UID, 0x00)                                      // _UID: Unique ID
+            Method (_STA)                                          // _STA: Device status
+            {
+                Return (0xF)
+            }
             Name (_CRS, ResourceTemplate ()
             {
                 Memory32Fixed (ReadWrite, 0xF2760000, 0x7D)
@@ -286,6 +517,10 @@ DefinitionBlock ("DSDT.aml", "DSDT", 2, "MVEBU ", "ARMADA8K", 3)
         {
             Name (_HID, "PRP0001")                                 // _HID: Hardware ID
             Name (_UID, 0x01)                                      // _UID: Unique ID
+            Method (_STA)                                          // _STA: Device status
+            {
+                Return (0xF)
+            }
             Name (_CRS, ResourceTemplate ()
             {
                 Memory32Fixed (ReadWrite, 0xF4760000, 0x7D)
@@ -312,6 +547,10 @@ DefinitionBlock ("DSDT.aml", "DSDT", 2, "MVEBU ", "ARMADA8K", 3)
             Name (_SEG, 0x00)  // _SEG: PCI Segment
             Name (_BBN, 0x00)  // _BBN: BIOS Bus Number
             Name (_CCA, 0x01)  // _CCA: Cache Coherency Attribute
+            Method (_STA)      // _STA: Device status
+            {
+                Return (0xF)
+            }
             Name (_PRT, Package ()  // _PRT: PCI Routing Table
             {
                 Package () { 0xFFFF, 0x0, 0x0, 0x40 },

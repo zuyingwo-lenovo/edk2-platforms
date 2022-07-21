@@ -1,7 +1,7 @@
 /** @file
   This driver installs SMBIOS information for Marvell Armada platforms
 
-  Copyright (c) 2015, ARM Limited. All rights reserved.
+  Copyright (c) 2015-2020, Arm Limited. All rights reserved.<BR>
   Copyright (c) 2019, Marvell International Ltd. and its affiliates
 
   SPDX-License-Identifier: BSD-2-Clause-Patent
@@ -77,9 +77,9 @@ STATIC SMBIOS_TABLE_TYPE0 mArmadaDefaultType0 = {
 };
 
 STATIC CHAR8 CONST *mArmadaDefaultType0Strings[] = {
-  "EFI Development Kit II / Marvell\0", /* Vendor */
-  "EDK II\0",                           /* BiosVersion */
-  __DATE__"\0",                         /* BiosReleaseDate */
+  (CHAR8 CONST *)PcdGetPtr (PcdFirmwareVendor),   /* Vendor */
+  (CHAR8 CONST *)PcdGetPtr (PcdFirmwareVersion),  /* BiosVersion */
+  __DATE__"\0",                                   /* BiosReleaseDate */
   NULL
 };
 
@@ -101,10 +101,10 @@ STATIC SMBIOS_TABLE_TYPE1 mArmadaDefaultType1 = {
 };
 
 STATIC CHAR8 CONST *mArmadaDefaultType1Strings[] = {
-  "Marvell                        \0",/* Manufacturer */
-  "Armada 7k/8k Family Board      \0",/* Product Name placeholder*/
-  "Revision unknown               \0",/* Version placeholder */
-  "                               \0",/* 32 character buffer */
+  (CHAR8 CONST *)PcdGetPtr (PcdProductManufacturer),
+  (CHAR8 CONST *)PcdGetPtr (PcdProductPlatformName),
+  (CHAR8 CONST *)PcdGetPtr (PcdProductVersion),
+  (CHAR8 CONST *)PcdGetPtr (PcdProductSerial),
   NULL
 };
 
@@ -129,10 +129,10 @@ STATIC SMBIOS_TABLE_TYPE2 mArmadaDefaultType2 = {
 };
 
 STATIC CHAR8 CONST *mArmadaDefaultType2Strings[] = {
-  "Marvell                        \0",/* Manufacturer */
-  "Armada 7k/8k Family Board      \0",/* Product Name placeholder*/
-  "Revision unknown               \0",/* Version placeholder */
-  "Serial Not Set                 \0",/* Serial */
+  (CHAR8 CONST *)PcdGetPtr (PcdProductManufacturer),
+  (CHAR8 CONST *)PcdGetPtr (PcdProductPlatformName),
+  (CHAR8 CONST *)PcdGetPtr (PcdProductVersion),
+  (CHAR8 CONST *)PcdGetPtr (PcdProductSerial),
   "Base of Chassis                \0",/* Board location */
   NULL
 };
@@ -160,9 +160,9 @@ STATIC SMBIOS_TABLE_TYPE3 mArmadaDefaultType3 = {
 };
 
 STATIC CHAR8 CONST *mArmadaDefaultType3Strings[] = {
-  "Marvell                        \0",/* Manufacturer placeholder */
-  "Revision unknown               \0",/* Version placeholder */
-  "Serial Not Set                 \0",/* Serial placeholder */
+  (CHAR8 CONST *)PcdGetPtr (PcdProductManufacturer),
+  (CHAR8 CONST *)PcdGetPtr (PcdProductVersion),
+  (CHAR8 CONST *)PcdGetPtr (PcdProductSerial),
   NULL
 };
 
@@ -181,7 +181,7 @@ STATIC SMBIOS_TABLE_TYPE4 mArmadaDefaultType4 = {
   3,             //version
   {0,0,0,0,0,1}, //voltage
   0,             //external clock
-  2000,          //max speed
+  2200,          //max speed
   0,             //current speed - requires update
   0x41,          //status
   ProcessorUpgradeOther,
@@ -196,6 +196,9 @@ STATIC SMBIOS_TABLE_TYPE4 mArmadaDefaultType4 = {
   4,             //threads per socket
   0xEC,          //processor characteristics
   ProcessorFamilyARM, //ARM core
+  0,             // CoreCount2;
+  0,             // EnabledCoreCount2;
+  0,             // ThreadCount2;
 };
 
 STATIC CHAR8 CONST *mArmadaDefaultType4Strings[] = {
@@ -457,7 +460,7 @@ STATIC SMBIOS_TABLE_TYPE17 mArmadaDefaultType17 = {
   0,  //Memory size obtained dynamically
   MemoryFormFactorRowOfChips,      //Memory factor
   0,                               //Not part of a set
-  1,                               //Right side of board
+  1,                               //Location
   2,                               //Bank 0
   MemoryTypeDdr4,                  //DDR4
   {0,0,0,0,0,0,0,0,0,0,0,0,0,0,1}, //unbuffered
@@ -467,10 +470,36 @@ STATIC SMBIOS_TABLE_TYPE17 mArmadaDefaultType17 = {
   0, //asset tag
   0, //part number
   0, //rank
+  0, // ExtendedSize; (since Size < 32GB-1)
+  0, // ConfiguredMemoryClockSpeed - initialized at runtime
+  0, // MinimumVoltage; (unknown)
+  0, // MaximumVoltage; (unknown)
+  0, // ConfiguredVoltage; (unknown)
+  MemoryTechnologyDram, // MemoryTechnology
+  {{                    // MemoryOperatingModeCapability
+    0,  // Reserved                        :1;
+    0,  // Other                           :1;
+    0,  // Unknown                         :1;
+    1,  // VolatileMemory                  :1;
+    0,  // ByteAccessiblePersistentMemory  :1;
+    0,  // BlockAccessiblePersistentMemory :1;
+    0   // Reserved                        :10;
+  }},
+  0, // FirwareVersion
+  0, // ModuleManufacturerID (unknown)
+  0, // ModuleProductID (unknown)
+  0, // MemorySubsystemControllerManufacturerID (unknown)
+  0, // MemorySubsystemControllerProductID (unknown)
+  0, // NonVolatileSize
+  0, // VolatileSize - initialized at runtime
+  0, // CacheSize
+  0, // LogicalSize
+  0, // ExtendedSpeed,
+  0  // ExtendedConfiguredMemorySpeed
 };
 
 STATIC CHAR8 CONST *mArmadaDefaultType17Strings[] = {
-  "RIGHT SIDE\0",                     /* location */
+  "DIMM SLOT\0",                      /* location */
   "BANK 0\0",                         /* bank description */
   NULL
 };
@@ -605,7 +634,7 @@ LogSmbiosData (
   CopyMem (Record, Template, Template->Length);
 
   // Append string pack
-  Str = ((VOID *)Record) + Record->Length;
+  Str = (CHAR8*)((UINTN)Record + Record->Length);
   for (Index = 0; StringArray[Index] != NULL; Index++) {
     StringSize = AsciiStrSize (StringArray[Index]);
     CopyMem (Str, StringArray[Index], StringSize);
@@ -735,9 +764,10 @@ SmbiosMemoryInstall (
   }
 
   //
-  // Update TYPE17 memory size field
+  // Update TYPE17 memory size fields
   //
   mArmadaDefaultType17.Size = (UINT16)(MemorySize >> 20);
+  mArmadaDefaultType17.VolatileSize = MemorySize;
 
   return EFI_SUCCESS;
 }
@@ -767,6 +797,7 @@ SmbiosInstallAllStructures (
   mArmadaDefaultType0.SystemBiosMinorRelease = FirmwareMinorRevisionNumber;
   mArmadaDefaultType4.CurrentSpeed = SampleAtResetGetCpuFrequency ();
   mArmadaDefaultType17.Speed = SampleAtResetGetDramFrequency ();
+  mArmadaDefaultType17.ConfiguredMemoryClockSpeed = SampleAtResetGetDramFrequency ();
 
   //
   // Generate memory descriptors.

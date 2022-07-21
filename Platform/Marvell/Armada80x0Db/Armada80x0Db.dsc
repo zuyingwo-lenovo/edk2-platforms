@@ -29,6 +29,8 @@
 
 !include Silicon/Marvell/Armada7k8k/Armada7k8k.dsc.inc
 
+!include MdePkg/MdeLibs.dsc.inc
+
 [Components.common]
   Silicon/Marvell/Armada7k8k/DeviceTree/Armada80x0Db.inf
 
@@ -45,6 +47,10 @@
 #
 ################################################################################
 [PcdsFixedAtBuild.common]
+  #Platform description
+  gMarvellTokenSpaceGuid.PcdProductPlatformName|"Armada 8040 DB"
+  gMarvellTokenSpaceGuid.PcdProductVersion|"Rev. 1.4"
+
   #MPP
   gMarvellTokenSpaceGuid.PcdMppChipCount|3
 

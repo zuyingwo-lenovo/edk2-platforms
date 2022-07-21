@@ -1,6 +1,6 @@
 /** @file
 
-Copyright (c) 2018 - 2019, Intel Corporation. All rights reserved.<BR>
+Copyright (c) 2018 - 2021, Intel Corporation. All rights reserved.<BR>
 SPDX-License-Identifier: BSD-2-Clause-Patent
 
 **/
@@ -107,8 +107,8 @@ LpcSioEarlyInit (
 {
     PchLpcGenIoRangeSet ((0x600  & 0xFF0), 0x10, LPC_ESPI_FIRST_SLAVE);
 
-    IoWrite8 (SIO_INDEX_PORT, SIO_UNLOCK);  
-    IoWrite8 (SIO_INDEX_PORT, SIO_UNLOCK);  
+    IoWrite8 (SIO_INDEX_PORT, SIO_UNLOCK);
+    IoWrite8 (SIO_INDEX_PORT, SIO_UNLOCK);
 
     //
     //mailbox
@@ -127,7 +127,7 @@ LpcSioEarlyInit (
     IoWrite8 (SIO_INDEX_PORT, ACTIVATE);
     IoWrite8 (SIO_DATA_PORT, 1);
 
-    IoWrite8 (SIO_INDEX_PORT, SIO_LOCK); 
+    IoWrite8 (SIO_INDEX_PORT, SIO_LOCK);
 }
 
 
@@ -140,24 +140,12 @@ EarlyPlatformPchInit (
 {
   UINT16                          Data16;
   UINT8                           Data8;
-  UINTN                           LpcBaseAddress;
   UINT8                           TcoRebootHappened;
-  UINTN                           PmcBaseAddress;
   UINTN                           SpiBaseAddress;
   UINTN                           P2sbBase;
 
   DEBUG((DEBUG_ERROR, "EarlyPlatformPchInit - Start\n"));
 
-  LpcBaseAddress = MmPciBase (
-                     DEFAULT_PCI_BUS_NUMBER_PCH,
-                     PCI_DEVICE_NUMBER_PCH_LPC,
-                     PCI_FUNCTION_NUMBER_PCH_LPC
-                     );
-  PmcBaseAddress = MmPciBase (
-                     DEFAULT_PCI_BUS_NUMBER_PCH,
-                     PCI_DEVICE_NUMBER_PCH_PMC,
-                     PCI_FUNCTION_NUMBER_PCH_PMC
-                     );
   SpiBaseAddress = MmPciBase (
                      DEFAULT_PCI_BUS_NUMBER_PCH,
                      PCI_DEVICE_NUMBER_PCH_SPI,
@@ -221,14 +209,16 @@ EarlyPlatformPchInit (
   //
   Data8 = IoRead8 (PcdGet16 (PcdTcoBaseAddress) + R_PCH_TCO2_STS);
   DEBUG((EFI_D_ERROR, "pre read:%x\n", Data8));
-  
+
   Data8 = IoRead8 (PcdGet16 (PcdTcoBaseAddress) + R_PCH_TCO2_STS);
   DEBUG((EFI_D_ERROR, "read:%x\n", Data8));
   if ((Data8 & B_PCH_TCO2_STS_SECOND_TO) == B_PCH_TCO2_STS_SECOND_TO) {
     TcoRebootHappened = 1;
-    DEBUG ((EFI_D_ERROR, "EarlyPlatformPchInit - TCO Second TO status bit is set. This might be a TCO reboot\n"));
   } else {
     TcoRebootHappened = 0;
+  }
+  if (TcoRebootHappened) {
+    DEBUG ((EFI_D_ERROR, "EarlyPlatformPchInit - TCO Second TO status bit is set. This might be a TCO reboot\n"));
   }
 
   //
@@ -272,6 +262,7 @@ UpdatePlatformInfo (
 {
   SOCKET_PROCESSORCORE_CONFIGURATION *SocketProcessorCoreConfig;
   SOCKET_IIO_CONFIGURATION           *SocketIioConfig;
+  EFI_STATUS                         Status;
   UINT32                             PcIoApicEnable;
 #if MAX_SOCKET <= 4
   UINTN                              Index;
@@ -293,18 +284,22 @@ UpdatePlatformInfo (
   // Enable all 32 IOxAPIC
   PcIoApicEnable = 0xFFFFFFFF;
 #endif
-  PcdSet32 (PcdPcIoApicEnable, PcIoApicEnable);
+  Status = PcdSet32S (PcdPcIoApicEnable, PcIoApicEnable);
+  ASSERT_EFI_ERROR (Status);
   //
   // Check to make sure TsegSize is in range, if not use default.
   //
   if (SocketProcessorCoreConfig->TsegSize > MAX_PROCESSOR_TSEG) {
     SocketProcessorCoreConfig->TsegSize = MAX_PROCESSOR_TSEG; // if out of range make default 64M
   }
-  PcdSet32 (PcdMemTsegSize, (0x400000 << SocketProcessorCoreConfig->TsegSize));
+  Status = PcdSet32S (PcdMemTsegSize, (0x400000 << SocketProcessorCoreConfig->TsegSize));
+  ASSERT_EFI_ERROR (Status);
   if (SocketProcessorCoreConfig->IedSize > 0) {
-    PcdSet32 (PcdMemIedSize, (0x400000 << (SocketProcessorCoreConfig->IedSize - 1)));
+    Status = PcdSet32S (PcdMemIedSize, (0x400000 << (SocketProcessorCoreConfig->IedSize - 1)));
+    ASSERT_EFI_ERROR (Status);
   } else {
-    PcdSet32 (PcdMemIedSize, 0);
+    Status = PcdSet32S (PcdMemIedSize, 0);
+    ASSERT_EFI_ERROR (Status);
   }
 
   //
@@ -326,7 +321,7 @@ ClearPchSmiAndWake (
   )
 {
   UINT16              ABase;
-  UINT16              Pm1Sts;
+  UINT16              Pm1Sts = 0;
 
 
   //
@@ -354,7 +349,7 @@ ClearPchSmiAndWake (
 EFI_STATUS
 PlatformInitGpios (
   VOID
-)
+  )
 {
   EFI_STATUS                   Status;
   GPIO_INIT_CONFIG             *GpioTable;
@@ -366,7 +361,7 @@ PlatformInitGpios (
   GpioTable = mGpioTableMicrosoftWcs;
   DEBUG ((DEBUG_ERROR, "UBA: ConfigureGpio() MtOlympus Start.\n"));
   Status = GpioConfigurePads (TableSize/sizeof (GPIO_INIT_CONFIG), GpioTable);
-  DEBUG ((DEBUG_ERROR, "UBA: ConfigureGpio() MtOlympus End.\n"));
+  DEBUG ((DEBUG_ERROR, "UBA: ConfigureGpio() MtOlympus End. Status = %r\n", Status));
 
   return EFI_SUCCESS;
 }
@@ -376,8 +371,12 @@ SetUsbConfig (
   VOID
   )
 {
-  PcdSet64 (PcdUsb20OverCurrentMappings, (UINT64)(UINTN)Usb20OverCurrentMappings);
-  PcdSet64 (PcdUsb30OverCurrentMappings, (UINT64)(UINTN)Usb30OverCurrentMappings);
+  EFI_STATUS                   Status;
+
+  Status = PcdSet64S (PcdUsb20OverCurrentMappings, (UINT64)(UINTN)Usb20OverCurrentMappings);
+  ASSERT_EFI_ERROR (Status);
+  Status = PcdSet64S (PcdUsb30OverCurrentMappings, (UINT64)(UINTN)Usb30OverCurrentMappings);
+  ASSERT_EFI_ERROR (Status);
 }
 
 VOID
@@ -385,10 +384,16 @@ IioPortBifurcationConfig (
   VOID
   )
 {
-  PcdSet64 (PcdIioBifurcationTable, (UINT64)(UINTN)mIioBifurcationTable);
-  PcdSet8 (PcdIioBifurcationTableEntries, mIioBifurcationTableEntries);
-  PcdSet64 (PcdIioSlotTable, (UINT64)(UINTN)mIioSlotTable);
-  PcdSet8 (PcdIioSlotTableEntries, mIioSlotTableEntries);
+  EFI_STATUS                   Status;
+
+  Status = PcdSet64S (PcdIioBifurcationTable, (UINT64)(UINTN)mIioBifurcationTable);
+  ASSERT_EFI_ERROR (Status);
+  Status = PcdSet8S (PcdIioBifurcationTableEntries, mIioBifurcationTableEntries);
+  ASSERT_EFI_ERROR (Status);
+  Status = PcdSet64S (PcdIioSlotTable, (UINT64)(UINTN)mIioSlotTable);
+  ASSERT_EFI_ERROR (Status);
+  Status = PcdSet8S (PcdIioSlotTableEntries, mIioSlotTableEntries);
+  ASSERT_EFI_ERROR (Status);
 }
 
 VOID
@@ -396,14 +401,18 @@ AllLanesEparamTableConfig (
   VOID
   )
 {
-  PcdSet64 (PcdAllLanesEparamTable, (UINT64)(UINTN)KtiMtOlympusAllLanesEparamTable);
-  PcdSet32 (PcdAllLanesEparamTableSize, KtiMtOlympusAllLanesEparamTableSize);
+  EFI_STATUS                   Status;
+
+  Status = PcdSet64S (PcdAllLanesEparamTable, (UINT64)(UINTN)KtiMtOlympusAllLanesEparamTable);
+  ASSERT_EFI_ERROR (Status);
+  Status = PcdSet32S (PcdAllLanesEparamTableSize, KtiMtOlympusAllLanesEparamTableSize);
+  ASSERT_EFI_ERROR (Status);
 }
 
 EFI_STATUS
 PchLanConfig (
   IN SYSTEM_CONFIGURATION         *SystemConfig
-)
+  )
 {
   GpioSetOutputValue (GPIO_SKL_H_GPP_I9, (UINT32)SystemConfig->LomDisableByGpio);
 

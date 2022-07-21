@@ -90,15 +90,17 @@
 //
 // Platform description of SDMMC controllers
 //
-#define MV_SOC_MAX_SDMMC_COUNT           2
-#define MV_SOC_SDMMC_BASE(Index)         ((Index) == 0 ? 0xF06E0000 : 0xF2780000)
+#define MV_SOC_SDMMC_PER_CP_COUNT        1
+#define MV_SOC_AP80X_SDMMC_BASE          0xF06E0000
+#define MV_SOC_CP_SDMMC_BASE(Cp)         (MV_SOC_CP_BASE (Cp) + 0x780000)
 
 //
 // Platform description of UTMI PHY's
 //
 #define MV_SOC_UTMI_PER_CP_COUNT         2
 #define MV_SOC_UTMI_ID(Utmi)             (Utmi)
-#define MV_SOC_UTMI_BASE(Utmi)           (0x580000 + ((Utmi) * 0x1000))
+#define MV_SOC_UTMI_BASE(Utmi)           (0x58000C + ((Utmi) * 0x1000))
+#define MV_SOC_UTMI_PLL_BASE             0x580000
 #define MV_SOC_UTMI_CFG_BASE             0x440440
 #define MV_SOC_UTMI_USB_CFG_BASE         0x440420
 

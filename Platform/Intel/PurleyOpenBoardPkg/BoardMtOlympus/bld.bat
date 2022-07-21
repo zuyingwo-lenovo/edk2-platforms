@@ -1,6 +1,6 @@
 @REM @file
 @REM
-@REM Copyright (c) 2018, Intel Corporation. All rights reserved.<BR>
+@REM Copyright (c) 2018 - 2021, Intel Corporation. All rights reserved.<BR>
 @REM SPDX-License-Identifier: BSD-2-Clause-Patent
 @REM
 
@@ -125,9 +125,9 @@ echo ---------------------------------------------------------------------------
 :done
 endlocal & EXIT /b %SCRIPT_ERROR%
 
-::--------------------------------------------------------  
-::-- Function section starts below here  
-::-------------------------------------------------------- 
+::--------------------------------------------------------
+::-- Function section starts below here
+::--------------------------------------------------------
 :cleantree
 choice /t 3 /d y /m "Confirm: clean tree of intermediate files created in tree during build"
 if %ERRORLEVEL% EQU 2 goto :EOF

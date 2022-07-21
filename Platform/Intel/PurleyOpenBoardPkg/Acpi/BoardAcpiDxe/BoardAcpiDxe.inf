@@ -1,10 +1,10 @@
-### @file
+## @file
 #
-# Copyright (c) 2018, Intel Corporation. All rights reserved.<BR>
+# Copyright (c) 2018 - 2021, Intel Corporation. All rights reserved.<BR>
 #
 # SPDX-License-Identifier: BSD-2-Clause-Patent
 #
-###
+##
 
 [Defines]
   INF_VERSION                    = 0x00010005
@@ -21,12 +21,10 @@
   BoardAcpiDxeDsdt.c
 
 [Packages]
-  PurleyOpenBoardPkg/PlatPkg.dec
-  PurleySktPkg/SocketPkg.dec
-  PurleyRcPkg/RcPkg.dec
+  PurleyOpenBoardPkg/OpenBoardPkg.dec
+  PurleyRefreshSiliconPkg/SiPkg.dec
   MdePkg/MdePkg.dec
   MdeModulePkg/MdeModulePkg.dec
-  LewisburgPkg/PchRcPkg.dec
   UefiCpuPkg/UefiCpuPkg.dec
   MinPlatformPkg/MinPlatformPkg.dec
 
@@ -40,7 +38,7 @@
   HobLib
   PcdLib
   BoardAcpiTableLib
-  
+
 [Protocols]
   gEfiMpServiceProtocolGuid
   gEfiIioUdsProtocolGuid
@@ -66,7 +64,7 @@
   gEfiAcpiTableProtocolGuid AND
   gEfiMpServiceProtocolGuid
 
-[BuildOptions]  
+[BuildOptions]
   # add -vr and -so to generate offset.h
   *_*_*_ASL_FLAGS = -oi -vr -so
 

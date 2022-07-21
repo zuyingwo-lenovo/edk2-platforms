@@ -1,6 +1,6 @@
 /** @file
 
-  Copyright (c) 2017 - 2019, ARM Limited. All rights reserved.
+  Copyright (c) 2017 - 2021, Arm Limited. All rights reserved.<BR>
 
   SPDX-License-Identifier: BSD-2-Clause-Patent
 
@@ -11,6 +11,14 @@
 
 #ifndef CONFIGURATION_MANAGER_H__
 #define CONFIGURATION_MANAGER_H__
+
+/** C array containing the compiled AML template.
+    These symbols are defined in the auto generated C file
+    containing the AML bytecode array.
+*/
+extern CHAR8  dsdt_aml_code[];
+extern CHAR8  ssdtjunousb_aml_code[];
+extern CHAR8  ssdtpci_aml_code[];
 
 /** The configuration manager version
 */
@@ -82,94 +90,39 @@
     (WritePolicy << 4)                                                  \
   )
 
-/** A helper macro for returning configuration manager objects
+/** PCI space codes.
 */
-#define HANDLE_CM_OBJECT(ObjId, CmObjectId, Object, ObjectCount)      \
-  case ObjId: {                                                       \
-    CmObject->ObjectId = CmObjectId;                                  \
-    CmObject->Size = sizeof (Object);                                 \
-    CmObject->Data = (VOID*)&Object;                                  \
-    CmObject->Count = ObjectCount;                                    \
-    DEBUG ((                                                          \
-      DEBUG_INFO,                                                     \
-      #CmObjectId ": Ptr = 0x%p, Size = %d, Count = %d\n",            \
-      CmObject->Data,                                                 \
-      CmObject->Size,                                                 \
-      CmObject->Count                                                 \
-      ));                                                             \
-    break;                                                            \
-  }
+#define PCI_SS_CONFIG   0
+#define PCI_SS_IO       1
+#define PCI_SS_M32      2
+#define PCI_SS_M64      3
 
-/** A helper macro for returning configuration manager objects
-    referenced by token
+/** Count of PCI address-range mapping struct.
 */
-#define HANDLE_CM_OBJECT_REF_BY_TOKEN(                                      \
-          ObjId,                                                            \
-          CmObjectId,                                                       \
-          Object,                                                           \
-          ObjectCount,                                                      \
-          Token,                                                            \
-          HandlerProc                                                       \
-          )                                                                 \
-  case ObjId: {                                                             \
-    CmObject->ObjectId = CmObjectId;                                        \
-    if (Token == CM_NULL_TOKEN) {                                           \
-      CmObject->Size = sizeof (Object);                                     \
-      CmObject->Data = (VOID*)&Object;                                      \
-      CmObject->Count = ObjectCount;                                        \
-      DEBUG ((                                                              \
-        DEBUG_INFO,                                                         \
-        #CmObjectId ": Ptr = 0x%p, Size = %d, Count = %d\n",                \
-        CmObject->Data,                                                     \
-        CmObject->Size,                                                     \
-        CmObject->Count                                                     \
-        ));                                                                 \
-    } else {                                                                \
-      Status = HandlerProc (This, CmObjectId, Token, CmObject);             \
-      DEBUG ((                                                              \
-        DEBUG_INFO,                                                         \
-        #CmObjectId ": Token = 0x%p, Ptr = 0x%p, Size = %d, Count = %d\n",  \
-        (VOID*)Token,                                                       \
-        CmObject->Data,                                                     \
-        CmObject->Size,                                                     \
-        CmObject->Count                                                     \
-        ));                                                                 \
-    }                                                                       \
-    break;                                                                  \
-  }
+#define PCI_ADDRESS_MAP_COUNT       3
 
-/** A helper macro for returning configuration manager objects referenced
-    by token when the entire platform repository is in scope and the
-    CM_NULL_TOKEN value is not allowed.
+/** Count of PCI device legacy interrupt mapping struct.
 */
-#define HANDLE_CM_OBJECT_SEARCH_PLAT_REPO(                                  \
-          ObjId,                                                            \
-          CmObjectId,                                                       \
-          Token,                                                            \
-          HandlerProc                                                       \
-          )                                                                 \
-  case ObjId: {                                                             \
-    CmObject->ObjectId = CmObjectId;                                        \
-    if (Token == CM_NULL_TOKEN) {                                           \
-      Status = EFI_INVALID_PARAMETER;                                       \
-      DEBUG ((                                                              \
-        DEBUG_ERROR,                                                        \
-        #ObjId ": CM_NULL_TOKEN value is not allowed when searching"        \
-        " the entire platform repository.\n"                                \
-        ));                                                                 \
-    } else {                                                                \
-      Status = HandlerProc (This, CmObjectId, Token, CmObject);             \
-      DEBUG ((                                                              \
-        DEBUG_INFO,                                                         \
-        #ObjId ": Token = 0x%p, Ptr = 0x%p, Size = %d, Count = %d\n",       \
-        (VOID*)Token,                                                       \
-        CmObject->Data,                                                     \
-        CmObject->Size,                                                     \
-        CmObject->Count                                                     \
-        ));                                                                 \
-    }                                                                       \
-    break;                                                                  \
-  }
+#define PCI_INTERRUPT_MAP_COUNT     4
+
+/** A function that prepares Configuration Manager Objects for returning.
+
+  @param [in]  This        Pointer to the Configuration Manager Protocol.
+  @param [in]  CmObjectId  The Configuration Manager Object ID.
+  @param [in]  Token       A token for identifying the object.
+  @param [out] CmObject    Pointer to the Configuration Manager Object
+                           descriptor describing the requested Object.
+
+  @retval EFI_SUCCESS           Success.
+  @retval EFI_INVALID_PARAMETER A parameter is invalid.
+  @retval EFI_NOT_FOUND         The required object information is not found.
+**/
+typedef EFI_STATUS (*CM_OBJECT_HANDLER_PROC) (
+  IN  CONST EDKII_CONFIGURATION_MANAGER_PROTOCOL  * CONST This,
+  IN  CONST CM_OBJECT_ID                                  CmObjectId,
+  IN  CONST CM_OBJECT_TOKEN                               Token,
+  IN  OUT   CM_OBJ_DESCRIPTOR                     * CONST CmObject
+  );
 
 /** The number of CPUs
 */
@@ -234,6 +187,15 @@
 */
 #define LITTLE_CORE_RESOURCE_COUNT  2
 
+/** The number of Lpi states for the platform:
+    - two for the cores
+    - one for the clusters
+*/
+#define CORES_LPI_STATE_COUNT           2
+#define CLUSTERS_LPI_STATE_COUNT        1
+#define LPI_STATE_COUNT                 (CORES_LPI_STATE_COUNT +              \
+                                         CLUSTERS_LPI_STATE_COUNT)
+
 /** A structure describing the platform configuration
     manager repository information
 */
@@ -279,6 +241,18 @@ typedef struct PlatformRepositoryInfo {
   /// PCI configuration space information
   CM_ARM_PCI_CONFIG_SPACE_INFO          PciConfigInfo;
 
+  // PCI address-range mapping references
+  CM_ARM_OBJ_REF                        PciAddressMapRef[PCI_ADDRESS_MAP_COUNT];
+
+  // PCI address-range mapping information
+  CM_ARM_PCI_ADDRESS_MAP_INFO           PciAddressMapInfo[PCI_ADDRESS_MAP_COUNT];
+
+  // PCI device legacy interrupts mapping references
+  CM_ARM_OBJ_REF                        PciInterruptMapRef[PCI_INTERRUPT_MAP_COUNT];
+
+  // PCI device legacy interrupts mapping information
+  CM_ARM_PCI_INTERRUPT_MAP_INFO         PciInterruptMapInfo[PCI_INTERRUPT_MAP_COUNT];
+
   /// GIC MSI Frame information
   CM_ARM_GIC_MSI_FRAME_INFO             GicMsiFrameInfo;
 
@@ -299,6 +273,15 @@ typedef struct PlatformRepositoryInfo {
 
   // 'LITTLE' core private resources
   CM_ARM_OBJ_REF                        LittleCoreResources[LITTLE_CORE_RESOURCE_COUNT];
+
+  // Low Power Idle state information (LPI) for all cores/clusters
+  CM_ARM_LPI_INFO                       LpiInfo[LPI_STATE_COUNT];
+
+  // Clusters Low Power Idle state references (LPI)
+  CM_ARM_OBJ_REF                        ClustersLpiRef[CLUSTERS_LPI_STATE_COUNT];
+
+  // Cores Low Power Idle state references (LPI)
+  CM_ARM_OBJ_REF                        CoresLpiRef[CORES_LPI_STATE_COUNT];
 
   /// Juno Board Revision
   UINT32                                JunoRevision;

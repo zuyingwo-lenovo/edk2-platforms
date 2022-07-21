@@ -100,8 +100,7 @@ EnableAvailableCores (
 
   while (CoreCount--) {
     for (Index = 0; Index < MAX_CORES; Index++) {
-      if (GicC[Index].MPIDR == GET_MPID (ArmCoreInfoTable->ClusterId,
-                                         ArmCoreInfoTable->CoreId)) {
+      if (GicC[Index].MPIDR == ArmCoreInfoTable->Mpidr) {
         GicC[Index].Flags |= EFI_ACPI_5_1_GIC_ENABLED;
         break;
       }
@@ -123,7 +122,6 @@ InstallSystemDescriptionTables (
   UINTN                                               TableSize;
   UINTN                                               TableHandle;
   EFI_ACPI_5_1_GENERIC_TIMER_DESCRIPTION_TABLE        *Gtdt;
-  EFI_ACPI_6_0_IO_REMAPPING_TABLE                     *Iort;
   EFI_ACPI_5_1_MULTIPLE_APIC_DESCRIPTION_TABLE_HEADER *Madt;
   EFI_ACPI_5_1_GIC_STRUCTURE                          *GicC;
   UINT8                         MacPackage[sizeof(mDefaultMacPackageA)];
@@ -176,10 +174,6 @@ InstallSystemDescriptionTables (
       case EFI_ACPI_6_0_IO_REMAPPING_TABLE_SIGNATURE:
         if (!PcdGetBool (PcdEnableSmmus)) {
           continue;
-        }
-        if ((CpuId & STYX_SOC_VERSION_MASK) < STYX_SOC_VERSION_B1) {
-          Iort = (EFI_ACPI_6_0_IO_REMAPPING_TABLE *)Table;
-          Iort->NumNodes -= 2;
         }
         break;
 

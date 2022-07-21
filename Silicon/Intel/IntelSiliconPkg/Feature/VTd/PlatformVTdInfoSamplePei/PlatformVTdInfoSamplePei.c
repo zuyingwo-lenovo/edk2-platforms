@@ -1,7 +1,7 @@
 /** @file
   Platform VTd Info Sample PEI driver.
 
-  Copyright (c) 2017, Intel Corporation. All rights reserved.<BR>
+  Copyright (c) 2017 - 2019, Intel Corporation. All rights reserved.<BR>
   SPDX-License-Identifier: BSD-2-Clause-Patent
 
 **/
@@ -9,6 +9,7 @@
 #include <PiPei.h>
 
 #include <Ppi/VtdInfo.h>
+#include <Ppi/VtdNullRootEntryTable.h>
 
 #include <Library/PeiServicesLib.h>
 #include <Library/DebugLib.h>
@@ -164,17 +165,27 @@ EFI_PEI_PPI_DESCRIPTOR mPlatformVTdNoIgdInfoSampleDesc = {
   &mPlatformVTdNoIgdSample
 };
 
+// BIOS uses TE with a null root entry table to block VT-d engine access to block any DMA traffic in pre-memory phase.
+EDKII_VTD_NULL_ROOT_ENTRY_TABLE_PPI mNullRootEntryTable = 0xFED20000;
+
+EFI_PEI_PPI_DESCRIPTOR mPlatformNullRootEntryTableDesc = {
+  (EFI_PEI_PPI_DESCRIPTOR_PPI | EFI_PEI_PPI_DESCRIPTOR_TERMINATE_LIST),
+  &gEdkiiVTdNullRootEntryTableGuid,
+  &mNullRootEntryTable
+};
+
 /**
   Initialize VTd register.
+  Initialize the VTd hardware unit which has INCLUDE_PCI_ALL set
 **/
 VOID
-InitDmar (
+InitGlobalVtd (
   VOID
   )
 {
   UINT32              MchBar;
 
-  DEBUG ((DEBUG_INFO, "InitDmar\n"));
+  DEBUG ((DEBUG_INFO, "InitGlobalVtd\n"));
 
   MchBar = PciRead32 (PCI_LIB_ADDRESS(0, 0, 0, R_SA_MCHBAR)) & ~BIT0;
   PciWrite32 (PCI_LIB_ADDRESS(0, 0, 0, R_SA_MCHBAR), 0xFED10000 | BIT0);
@@ -343,10 +354,16 @@ PlatformVTdInfoSampleInitialize (
   if (!EFI_ERROR(Status)) {
     SiliconInitialized = TRUE;
   }
+
+  Status = PeiServicesInstallPpi (&mPlatformNullRootEntryTableDesc);
+  if (EFI_ERROR (Status)) {
+    ASSERT_EFI_ERROR (Status);
+  }
+
   DEBUG ((DEBUG_INFO, "SiliconInitialized - %x\n", SiliconInitialized));
   if (!SiliconInitialized) {
     Status = PeiServicesNotifyPpi (&mSiliconInitializedNotifyList);
-    InitDmar ();
+    InitGlobalVtd ();
 
     Status = PeiServicesInstallPpi (&mPlatformVTdNoIgdInfoSampleDesc);
     ASSERT_EFI_ERROR (Status);

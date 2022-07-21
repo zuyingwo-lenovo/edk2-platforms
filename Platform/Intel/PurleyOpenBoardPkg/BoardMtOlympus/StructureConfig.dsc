@@ -1,10 +1,10 @@
-### @file
+## @file
 #
-# Copyright (c) 2018, Intel Corporation. All rights reserved.<BR>
+# Copyright (c) 2018 - 2021, Intel Corporation. All rights reserved.<BR>
 #
 # SPDX-License-Identifier: BSD-2-Clause-Patent
 #
-###
+##
 
 #[PcdsDynamicEx.common.DEFAULT.MANUFACTURING]
 #  gOemSkuTokenSpaceGuid.PcdSetupData|L"Setup"|ec87d643-eba4-4bb5-a1e5-3f3e36b20da9|0x00
@@ -5818,6 +5818,30 @@
   gOemSkuTokenSpaceGuid.PcdSocketMemoryConfigData.sck3ch3|0xff
   gOemSkuTokenSpaceGuid.PcdSocketMemoryConfigData.sck3ch4|0xff
   gOemSkuTokenSpaceGuid.PcdSocketMemoryConfigData.sck3ch5|0xff
+  gOemSkuTokenSpaceGuid.PcdSocketMemoryConfigData.sck4ch0|0xff
+  gOemSkuTokenSpaceGuid.PcdSocketMemoryConfigData.sck4ch1|0xff
+  gOemSkuTokenSpaceGuid.PcdSocketMemoryConfigData.sck4ch2|0xff
+  gOemSkuTokenSpaceGuid.PcdSocketMemoryConfigData.sck4ch3|0xff
+  gOemSkuTokenSpaceGuid.PcdSocketMemoryConfigData.sck4ch4|0xff
+  gOemSkuTokenSpaceGuid.PcdSocketMemoryConfigData.sck4ch5|0xff
+  gOemSkuTokenSpaceGuid.PcdSocketMemoryConfigData.sck5ch0|0xff
+  gOemSkuTokenSpaceGuid.PcdSocketMemoryConfigData.sck5ch1|0xff
+  gOemSkuTokenSpaceGuid.PcdSocketMemoryConfigData.sck5ch2|0xff
+  gOemSkuTokenSpaceGuid.PcdSocketMemoryConfigData.sck5ch3|0xff
+  gOemSkuTokenSpaceGuid.PcdSocketMemoryConfigData.sck5ch4|0xff
+  gOemSkuTokenSpaceGuid.PcdSocketMemoryConfigData.sck5ch5|0xff
+  gOemSkuTokenSpaceGuid.PcdSocketMemoryConfigData.sck6ch0|0xff
+  gOemSkuTokenSpaceGuid.PcdSocketMemoryConfigData.sck6ch1|0xff
+  gOemSkuTokenSpaceGuid.PcdSocketMemoryConfigData.sck6ch2|0xff
+  gOemSkuTokenSpaceGuid.PcdSocketMemoryConfigData.sck6ch3|0xff
+  gOemSkuTokenSpaceGuid.PcdSocketMemoryConfigData.sck6ch4|0xff
+  gOemSkuTokenSpaceGuid.PcdSocketMemoryConfigData.sck6ch5|0xff
+  gOemSkuTokenSpaceGuid.PcdSocketMemoryConfigData.sck7ch0|0xff
+  gOemSkuTokenSpaceGuid.PcdSocketMemoryConfigData.sck7ch1|0xff
+  gOemSkuTokenSpaceGuid.PcdSocketMemoryConfigData.sck7ch2|0xff
+  gOemSkuTokenSpaceGuid.PcdSocketMemoryConfigData.sck7ch3|0xff
+  gOemSkuTokenSpaceGuid.PcdSocketMemoryConfigData.sck7ch4|0xff
+  gOemSkuTokenSpaceGuid.PcdSocketMemoryConfigData.sck7ch5|0xff
   gOemSkuTokenSpaceGuid.PcdSocketMemoryConfigData.PagePolicy|0x3
   gOemSkuTokenSpaceGuid.PcdSocketMemoryConfigData.DutyCycleTraining|0x1
   gOemSkuTokenSpaceGuid.PcdSocketMemoryConfigData.readVrefCenter|0x2
@@ -5830,7 +5854,6 @@
   gOemSkuTokenSpaceGuid.PcdSocketMemoryConfigData.thermalmemtrip|0x0
   gOemSkuTokenSpaceGuid.PcdSocketMemoryConfigData.memhotSupport|0x0
   gOemSkuTokenSpaceGuid.PcdSocketMemoryConfigData.CkeProgramming|0x0
-  gOemSkuTokenSpaceGuid.PcdSocketMemoryConfigData.SrefProgramming|0x0
   gOemSkuTokenSpaceGuid.PcdSocketMemoryConfigData.PkgcSrefEn|0x1
   gOemSkuTokenSpaceGuid.PcdSocketMemoryConfigData.CkeIdleTimer|0x14
   gOemSkuTokenSpaceGuid.PcdSocketMemoryConfigData.ApdEn|0x0
@@ -5870,7 +5893,43 @@
   gOemSkuTokenSpaceGuid.PcdSocketMemoryConfigData.Reserved_3|0x1
   gOemSkuTokenSpaceGuid.PcdSocketMemoryConfigData.Reserved_4|0x1
   gOemSkuTokenSpaceGuid.PcdSocketMemoryConfigData.Reserved_5|0x1
-  gOemSkuTokenSpaceGuid.PcdSocketMemoryConfigData.crQosConfig|0x0
+  gOemSkuTokenSpaceGuid.PcdSocketMemoryConfigData.FastGoConfig|0x6
+  gOemSkuTokenSpaceGuid.PcdSocketMemoryConfigData.ADRDataSaveMode|0x2
+  gOemSkuTokenSpaceGuid.PcdSocketMemoryConfigData.eraseArmNVDIMMS|0x1
+  gOemSkuTokenSpaceGuid.PcdSocketMemoryConfigData.restoreNVDIMMS|0x1
+  gOemSkuTokenSpaceGuid.PcdSocketMemoryConfigData.OffsetTxDq|0x64
+  gOemSkuTokenSpaceGuid.PcdSocketMemoryConfigData.OffsetRxDq|0x64
+  gOemSkuTokenSpaceGuid.PcdSocketMemoryConfigData.OffsetTxVref|0x64
+  gOemSkuTokenSpaceGuid.PcdSocketMemoryConfigData.OffsetRxVref|0x64
+  gOemSkuTokenSpaceGuid.PcdSocketMemoryConfigData.OffsetCmdAll|0x64
+  gOemSkuTokenSpaceGuid.PcdSocketMemoryConfigData.OffsetCmdVref|0x64
+  gOemSkuTokenSpaceGuid.PcdSocketMemoryConfigData.OffsetCtlAll|0x64
+  gOemSkuTokenSpaceGuid.PcdSocketMemoryConfigData.turnaroundOptDdrt|0x2
+  gOemSkuTokenSpaceGuid.PcdSocketMemoryConfigData.NgnEccExitCorr|0x2
+  gOemSkuTokenSpaceGuid.PcdSocketMemoryConfigData.NgnArsPublish|0x2
+  gOemSkuTokenSpaceGuid.PcdSocketMemoryConfigData.NgnAveragePower|0x3A98
+  gOemSkuTokenSpaceGuid.PcdSocketMemoryConfigData.NgnThrottleTemp|0x2
+  gOemSkuTokenSpaceGuid.PcdSocketMemoryConfigData.AppDirectMemoryHole|0x1
+  gOemSkuTokenSpaceGuid.PcdSocketMemoryConfigData.LatchSystemShutdownState|0x1
+  gOemSkuTokenSpaceGuid.PcdSocketMemoryConfigData.EliminateDirectoryInFarMemory|0x1
+  gOemSkuTokenSpaceGuid.PcdSocketMemoryConfigData.NvmdimmPowerCyclePolicy|0x1
+  gOemSkuTokenSpaceGuid.PcdSocketMemoryConfigData.Force1ChWayFM|0x1
+  gOemSkuTokenSpaceGuid.PcdSocketMemoryConfigData.DisableDirForAppDirect|0x1
+  gOemSkuTokenSpaceGuid.PcdSocketMemoryConfigData.NvmMediaStatusException|0x1
+  gOemSkuTokenSpaceGuid.PcdSocketMemoryConfigData.LsxImplementation|0x1
+  gOemSkuTokenSpaceGuid.PcdSocketMemoryConfigData.NvdimmSmbusMaxAccessTime|0x15E
+  gOemSkuTokenSpaceGuid.PcdSocketMemoryConfigData.NvdimmSmbusReleaseDelay|0x96
+  gOemSkuTokenSpaceGuid.PcdSocketMemoryConfigData.TrfcPerfEnable|0x64
+  gOemSkuTokenSpaceGuid.PcdSocketMemoryConfigData.AdvMemTestCondition|0x1
+  gOemSkuTokenSpaceGuid.PcdSocketMemoryConfigData.AdvMemTestCondVdd|0x4EC
+  gOemSkuTokenSpaceGuid.PcdSocketMemoryConfigData.AdvMemTestCondTwr|0xA
+  gOemSkuTokenSpaceGuid.PcdSocketMemoryConfigData.AdvMemTestCondTrefi|0x3CF0
+  gOemSkuTokenSpaceGuid.PcdSocketMemoryConfigData.AdvMemTestCondPause|0x186A0
+  gOemSkuTokenSpaceGuid.PcdSocketMemoryConfigData.OffsetRecEn|0x64
+  gOemSkuTokenSpaceGuid.PcdSocketMemoryConfigData.RcvenAve|0x2
+  gOemSkuTokenSpaceGuid.PcdSocketMemoryConfigData.allowCorrectableMemTestError|0x2
+  gOemSkuTokenSpaceGuid.PcdSocketMemoryConfigData.PatrolErrorDowngradeEn|0x1
+  gOemSkuTokenSpaceGuid.PcdSocketMemoryConfigData.AdvMemTestRetryAfterRepair|0x1
   gOemSkuTokenSpaceGuid.PcdSocketMemoryConfigData.setSecureEraseAllDIMMs|0x1
   gOemSkuTokenSpaceGuid.PcdSocketMemoryConfigData.setSecureEraseSktCh[0]|0x0
   gOemSkuTokenSpaceGuid.PcdSocketMemoryConfigData.setSecureEraseSktCh[1]|0x0
@@ -5915,7 +5974,7 @@
   gOemSkuTokenSpaceGuid.PcdSocketMemoryConfigData.ADDDCEn|0x0
   gOemSkuTokenSpaceGuid.PcdSocketMemoryConfigData.AdddcErrInjEn|0x1
   gOemSkuTokenSpaceGuid.PcdSocketMemoryConfigData.DieSparing|0x1
-  gOemSkuTokenSpaceGuid.PcdSocketMemoryConfigData.DieSparingAggressivenessLevel|0x80
+  gOemSkuTokenSpaceGuid.PcdSocketMemoryConfigData.Reserved1|0x0
   gOemSkuTokenSpaceGuid.PcdSocketMemoryConfigData.PatrolScrub|0x1
   gOemSkuTokenSpaceGuid.PcdSocketMemoryConfigData.PatrolScrubDuration|0x18
   gOemSkuTokenSpaceGuid.PcdSocketMemoryConfigData.PatrolScrubAddrMode|0x1
@@ -5940,9 +5999,10 @@
   gOemSkuTokenSpaceGuid.PcdSocketPowerManagementConfigData.ProcessorEppProfile|0x55
   gOemSkuTokenSpaceGuid.PcdSocketPowerManagementConfigData.ProcessorAPSrocketing|0x1
   gOemSkuTokenSpaceGuid.PcdSocketPowerManagementConfigData.ProcessorScalability|0x1
-  gOemSkuTokenSpaceGuid.PcdSocketPowerManagementConfigData.ProcessorPPOBudget|0x1
+  gOemSkuTokenSpaceGuid.PcdSocketPowerManagementConfigData.ProcessorRaplPrioritization|0x0
   gOemSkuTokenSpaceGuid.PcdSocketPowerManagementConfigData.WFRWAEnable|0x2
   gOemSkuTokenSpaceGuid.PcdSocketPowerManagementConfigData.UFSDisable|0x0
+  gOemSkuTokenSpaceGuid.PcdSocketPowerManagementConfigData.AvxIccpLevel|0x1
   gOemSkuTokenSpaceGuid.PcdSocketPowerManagementConfigData.ProcessorEistEnable|0x1
   gOemSkuTokenSpaceGuid.PcdSocketPowerManagementConfigData.ConfigTDPLevel|0x0
   gOemSkuTokenSpaceGuid.PcdSocketPowerManagementConfigData.PStateDomain|0x0
@@ -5950,6 +6010,7 @@
   gOemSkuTokenSpaceGuid.PcdSocketPowerManagementConfigData.ProcessorSinglePCTLEn|0x0
   gOemSkuTokenSpaceGuid.PcdSocketPowerManagementConfigData.ProcessorSPD|0x0
   gOemSkuTokenSpaceGuid.PcdSocketPowerManagementConfigData.BootPState|0x0
+  gOemSkuTokenSpaceGuid.PcdSocketPowerManagementConfigData.ProcessorConfigurePbf|0x1
   gOemSkuTokenSpaceGuid.PcdSocketPowerManagementConfigData.EETurboDisable|0x0
   gOemSkuTokenSpaceGuid.PcdSocketPowerManagementConfigData.TurboMode|0x1
   gOemSkuTokenSpaceGuid.PcdSocketPowerManagementConfigData.EnableXe|0x1
@@ -6113,7 +6174,7 @@
   gOemSkuTokenSpaceGuid.PcdSocketProcessorCoreConfigData.DCUIPPrefetcherEnable|0x1
   gOemSkuTokenSpaceGuid.PcdSocketProcessorCoreConfigData.DCUModeSelection|0x0
   gOemSkuTokenSpaceGuid.PcdSocketProcessorCoreConfigData.BspSelection|0xff
-  gOemSkuTokenSpaceGuid.PcdSocketProcessorCoreConfigData.MTRRDefTypeUncachable|0x1
+  gOemSkuTokenSpaceGuid.PcdSocketProcessorCoreConfigData.Reserved2|0x0
   gOemSkuTokenSpaceGuid.PcdSocketProcessorCoreConfigData.ProcessorX2apic|0x0
   gOemSkuTokenSpaceGuid.PcdSocketProcessorCoreConfigData.ForceX2ApicIds|0x0
   gOemSkuTokenSpaceGuid.PcdSocketProcessorCoreConfigData.AesEnable|0x1
@@ -6129,6 +6190,7 @@
   gOemSkuTokenSpaceGuid.PcdSocketProcessorCoreConfigData.TargetedSmi|0x0
   gOemSkuTokenSpaceGuid.PcdSocketProcessorCoreConfigData.eSmmSaveState|0x0
   gOemSkuTokenSpaceGuid.PcdSocketProcessorCoreConfigData.SmbusErrorRecovery|0x0
+  gOemSkuTokenSpaceGuid.PcdSocketProcessorCoreConfigData.MonitorMwaitEnabled|0x2
   gOemSkuTokenSpaceGuid.PcdSocketProcessorCoreConfigData.CoreDisableMask[0]|0x0
   gOemSkuTokenSpaceGuid.PcdSocketProcessorCoreConfigData.IotEn[0]|0x0
   gOemSkuTokenSpaceGuid.PcdSocketProcessorCoreConfigData.OclaMinWay[0]|0x1

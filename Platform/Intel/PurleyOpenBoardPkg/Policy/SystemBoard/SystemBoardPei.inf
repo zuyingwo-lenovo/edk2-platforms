@@ -1,10 +1,10 @@
-### @file
+## @file
 #
-# Copyright (c) 2018, Intel Corporation. All rights reserved.<BR>
+# Copyright (c) 2018 - 2021, Intel Corporation. All rights reserved.<BR>
 #
 # SPDX-License-Identifier: BSD-2-Clause-Patent
 #
-###
+##
 
 [Defines]
   INF_VERSION                    = 0x00010005
@@ -20,10 +20,8 @@
 [Packages]
   MdeModulePkg/MdeModulePkg.dec
   MdePkg/MdePkg.dec
-  LewisburgPkg/PchRcPkg.dec
-  PurleyOpenBoardPkg/PlatPkg.dec
-  PurleySktPkg/SocketPkg.dec
-  PurleyRcPkg/RcPkg.dec
+  PurleyOpenBoardPkg/OpenBoardPkg.dec
+  PurleyRefreshSiliconPkg/SiPkg.dec
 
 [LibraryClasses]
   BaseLib
@@ -71,7 +69,7 @@
   gEfiPeiSystemBoardPpiGuid         ## PRODUCES
   gEfiPeiSmbus2PpiGuid
   gPchPlatformPolicyPpiGuid
-  
+
 [Depex]
   gEfiPeiPcdPpiGuid AND
   gEfiPeiReadOnlyVariable2PpiGuid
